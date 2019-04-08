@@ -1,0 +1,277 @@
+﻿<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>移动模块管理系统</title>
+<script src="https://cdn.jsdelivr.net/npm/vue " type="text/javascript"></script>
+<script src="/js/jquery-1.11.1.min.js"></script>
+<script src="/js/jquery.form.js"></script>
+<script src="/js/layer/layer.js"></script>
+<script src="/js/vue-router.js"></script>
+<script src="/js/axios.min.js"></script>
+<link rel="stylesheet" href="/css/app.css" type="text/css" />
+<link rel="stylesheet" href="/js/jqweui/css/jquery-weui.min.css" type="text/css" />
+<script src="/js/mp/vue.js?t=1" type="text/javascript"></script>
+
+<script type="text/javascript">
+Vue.prototype.setCookie = function(c_name,value,expiredays) {
+  var exdate=new Date()
+  exdate.setDate(exdate.getDate()+expiredays)
+  document.cookie=c_name+ "=" +escape(value)+
+    ((expiredays==null) ? "" : ";expires="+exdate.toGMTString())
+};
+
+Vue.prototype.getCookie=function(c_name) {
+  if (document.cookie.length>0)
+  {
+    var  c_start=document.cookie.indexOf(c_name + "=")
+    if (c_start!=-1)
+    {
+      c_start=c_start + c_name.length+1
+     var c_end=document.cookie.indexOf(";",c_start)
+      if (c_end==-1) c_end=document.cookie.length
+      return unescape(document.cookie.substring(c_start,c_end))
+    }
+  }
+  return ""
+};
+</script>
+<link rel="stylesheet" href="/pm/css" type="text/css" />
+<style type="text/css">
+
+
+.fixnav{ 
+  position: fixed; 
+  bottom: 0; 
+  left: 0;  
+  right: 0;
+  background: #fff;  
+  border-top: #e8e9eb solid 1px; 
+  text-align: center;
+  padding:0 0 5px;
+  p{
+    line-height:12px;
+  }
+}
+.fixnav a{margin-top:5px;}
+.fixnav a img{margin:auto;}
+.iconfont,.fixnav p{ color: #c6c6c6; }
+.iconfont{ font-size:20px;}
+.router-link-exact-active p,.router-link-exact-active .iconfont{ color: #fe4543; }
+
+
+
+.weui-grid {
+    position: relative;
+    float: left;
+    padding: 20px 10px;
+    width: 25%;
+    box-sizing: border-box;
+}
+
+
+.datashows[data-v-dec7aa6c] {
+	width:90%;
+    color: #fff;
+    background: #fe4543;
+    display: block;
+    /* margin: .29333rem auto; */
+    padding: 20px;
+    line-height: 35px;
+	margin:auto;
+}
+
+.datanum_cls span[data-v-dec7aa6c] {
+    text-align: center;
+    display: block;
+}
+.gray { 
+    -webkit-filter: grayscale(100%);
+    -moz-filter: grayscale(100%);
+    -ms-filter: grayscale(100%);
+    -o-filter: grayscale(100%);
+    
+    filter: grayscale(100%);
+	
+    filter: gray;
+	color:#ccc;
+}
+
+
+
+
+.tit_cls {
+    color: #333;
+    font-size: 20px;
+    background: #fff;
+    padding: 10px 10px;
+}
+
+.tit_cls i {
+    font-size: 20px;
+    padding-right: .4rem;
+}
+
+.icon-add {
+    padding-right: 0;
+    font-size: 20px;
+}
+
+
+
+
+
+
+
+
+</style>
+
+</head>
+
+
+<body style="max-width:480px;margin:auto;">
+<div id="app">
+
+	<router-view></router-view>
+
+</div>
+</body>
+
+<script>
+
+var index=Vue.extend({
+		template: '<div><xxms_topmsg></xxms_topmsg><app_apps></app_apps><navmenu></navmenu></div>',
+		props: []
+	})
+Vue.component('index', index)			
+
+var apps=Vue.extend({
+		template: '<div><app_applist></app_applist><navmenu></navmenu></div>',
+		props: []
+	})
+Vue.component('apps', apps)	
+
+var app=Vue.extend({
+		template: '<div><app_appedit></app_appedit></div>',
+		props: []
+	})
+Vue.component('app', app)	
+
+var pages=Vue.extend({
+		template: '<div><app_pagelist></app_pagelist></div>',
+		props: []
+	})
+Vue.component('pages', pages)	
+
+var page=Vue.extend({
+		template: '<div><app_pageedit></app_pageedit></div>',
+		props: []
+	})
+Vue.component('page', page)	
+
+var widgets=Vue.extend({
+		template: '<div><app_widgetlist></app_widgetlist></div>',
+		props: []
+	})
+Vue.component('widgets', widgets)	
+
+var widgetedit=Vue.extend({
+		template: '<div><app_widgetedit></app_widgetedit></div>',
+		props: []
+	})
+Vue.component('widgetedit', widgetedit)	
+
+var login=Vue.extend({
+		template: '<div><app_login></app_login></div>',
+		props: []
+	})
+Vue.component('login', login)	
+
+
+var center=Vue.extend({
+	template: '<div><navmenu></navmenu><weui_msg></weui_msg><form_textarea></form_textarea></div>',
+	props: []
+})
+Vue.component('center', center)			
+			
+var aaa=Vue.extend({
+		template: '<div><weui_msg></weui_msg><navmenu></navmenu></div>',
+		props: []
+})
+Vue.component('aaa', aaa)
+
+var building=Vue.extend({
+		template: '<div><xxms_building></xxms_building><navmenu></navmenu></div>',
+		props: []
+})
+Vue.component('building', building)
+
+
+var routes = [{
+	path: '/',
+	component: index
+}, {
+	path: '/index',
+	component: index
+}, {
+	path: '/apps',
+	component: apps
+}, {
+	path: '/pages/:id',
+	component: pages
+}, {
+	path: '/page/:id',
+	component: page
+}, {
+	path: '/app/:id',
+	component: app
+}, {
+	path: '/widgets/:id',
+	component: widgets
+}, {
+	path: '/widgetedit/:id',
+	component: widgetedit
+}, {
+	path: '/login',
+	component: login
+}, {
+	path: '/kecheng',
+	component: building
+}, {
+	path: '/center',
+	component: center
+}, {
+	path: '/my',
+	component: xxms_my
+}]
+// 3. 创建 router 实例，然后传 `routes` 配置
+// 你还可以传别的配置参数, 不过先这么简单着吧。
+const router = new VueRouter({
+  routes // (缩写) 相当于 routes: routes
+})
+
+new Vue({
+	router,
+    el: '#app',
+    data: {
+        names: [
+            { id: 0, text: '蔬菜1' },
+            { id: 1, text: '奶酪1' },
+            { id: 2, text: '随便其它什么人吃的东西1' }
+        ]
+    },mounted(){ 
+		var $this = this;
+ 		var loginstate=$this.getCookie('_login');
+		if(loginstate==""){
+		  $this.$router.push("./login")  
+		}
+	}
+})
+
+function pxTorem(p){
+  return p /37.5;
+}
+
+
+</script>
+</html>

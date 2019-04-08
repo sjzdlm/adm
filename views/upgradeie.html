@@ -1,0 +1,135 @@
+﻿
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="renderer" content="ie-stand"/>
+<meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+/* Eric Meyer's Reset CSS v2.0 - http://cssreset.com */
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td,article,aside,canvas,details,embed,figure,figcaption,footer,header,hgroup,menu,nav,output,ruby,section,summary,time,mark,audio,video{border:0;font-size:100%;font:inherit;vertical-align:baseline;margin:0;padding:0}article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:none}table{border-collapse:collapse;border-spacing:0}
+*, ::after, ::before {
+    box-sizing: border-box;
+}
+
+a{text-decoration:none;color:#0072c6;}a:hover{text-decoration:none;color:#004d8c;}
+body{text-align:center;font-size:14px;line-height:24px;font-family:Microsoft YaHei, '瀹嬩綋', sans-serif;color:#454545;overflow-y:scroll;_overflow-y:auto;*overflow-y:auto}
+.page{width:960px;margin:0 auto;padding:10px;text-align:left;}
+h2,h3{font-family:Microsoft YaHei}
+h1{font-size:40px;line-height:60px;font-weight:100;margin:20px 0 15px;}
+h2{font-size:20px;line-height:25px;font-weight:100;margin:10px 0;}
+h3{font-weight:bold}
+
+
+code{padding: 2px 4px;font-size: 95%;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;}
+pre code{white-space: pre-wrap;word-break:break-word;display:inline-block;word-break:break-all;}
+ul{padding:0 1em;}
+ul li{list-style-type:disc;list-style-position:inside;}
+
+b,strong{font-weight:bold}
+em{color:red}
+
+p{margin-bottom:10px}
+hr, .hr{margin:20px 0;border:0;width:100%;height:1px;overflow:hidden;background-color:#ccc}
+
+.text-right{text-align:right}
+.clearboth{clear:both;width:100%;content: "";}
+.clearleft{clear:left;width:100%;content: "";}
+.clearright{clear:right;width:100%;content: "";}
+
+.browser-list{margin:15px 0 10px;padding:0;height:42px;_overflow:hidden}
+.browser{display:block;width:155px;height:34px;line-height:22px;float:left;list-style:none;}
+.browser.clearleft{height:1px}
+.browser span{display:block;font-size:12px;line-height:1.2;}
+.browser img{width:34px;height:34px;border:0;float:left;margin-right:10px;}
+.browser.firefox{width:150px}
+.browser.edge{width:150px}
+.browser.ie2345{width:170px}
+.browser.se360{width:160px}
+.browser.qqbrowser{width:140px}
+.small-alert{font-size:12px;margin:15px 0 8px;color:#90949c}
+.small-alert:not(.hide)+hr{margin-top:0}
+.hide{display:none}
+.alert-danger{color:#777;background-color:#f1f1f1;padding:6px 12px;_padding:8px 12px 6px;clear:both;width:100%}
+.alert-info{color:#000;background-color:#f1f6fc;margin-top:8px}
+.alert-info img{vertical-align:text-top;}
+#win-danger{margin-top:8px;position: relative;}
+#win-danger .arrow{background:url(/images/arrow.png) no-repeat;border:0;position:absolute;display:block;width:20px;height:12px;left:325px;top:-12px}
+
+#referrer a{word-break:break-all;}
+
+.top-alert {
+    background:#f2f2f2;
+}
+.top-alert-content {
+    font-size:14px;
+}
+
+.targetline {
+    word-break: break-all;
+}
+
+</style>
+<title>请升级你的浏览器</title>
+<meta name="description" content="这是一个开放的旧版IE升级提示页，普通用户可通过本页介绍快速了解为何要升级旧版IE浏览器以及如何升级浏览器，开发者可引用本页提供的代码为网站接入旧版IE升级提示。"/>
+<link rel="canonical" href="https://support.dmeng.net/upgrade-your-browser.html"/>
+<link rel="dns-prefetch" href="https://static.support.dmeng.net"/><base href="https://static.support.dmeng.net"/>
+<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+<meta http-equiv="Cache-Control" content="no-siteapp"/>
+<meta http-equiv="Cache-Control" content="no-transform"/> 
+<link type="text/css" rel="stylesheet" href="/css/support.style.css"/>
+<script>
+    var l = window.location, s = l.search.substr(1),
+        r = '', dr = document.referrer, r1 = s.match(/(^|&)referrer=([^&]*)/), r2 = s.match(/^referrer=((http|https)\:\/\/.*)$/);
+    if (r2 !== null) r = r2[1]; else if (r1 !== null) r = r1[2];
+    if (r === '' && dr !== '' && dr.indexOf(l.hostname) === -1)
+        l.href = l.protocol + '//' + l.hostname + l.pathname + '?referrer=' + encodeURIComponent(dr) + '&' + s;
+
+    var url = decodeURIComponent(r);
+    var targetUrlHTML = url === '' ? '' : '&nbsp;<a href="'+url+'" onclick="alert(\'点击右键“复制快捷方式”（复制链接）到更先进的浏览器访问。\');return false;">'+url+'</a>&nbsp;';
+</script>
+</head>
+<body>
+<div class="page">
+<h1><font color="red">注意:</font>是时候升级你的浏览器了!</h1>
+<p>你正在使用旧版 Internet Explorer（IE11以下版本或使用该内核的浏览器）。这意味着在升级浏览器前，你将无法访问此网站。</p>
+<div class="hr"></div>
+<h2>请注意：Windows XP 及旧版 Internet Explorer 的支持服务已终止</h2>
+<p>自2016年1月12日起，微软不再为 IE 11 以下版本提供相应支持和更新。没有关键的浏览器安全更新，您的电脑可能易受有害病毒、间谍软件和其他恶意软件的攻击，它们可以窃取或损害您的业务数据和信息。请参阅 <a href="https://support.dmeng.net/end-of-ie-support.html" target="_blank">微软对旧版 Internet Explorer 的支持服务已终止的说明</a> 。</p>
+<div class="hr"></div>
+<h2>更先进的浏览器</h2>
+<p class="targetline">推荐使用以下浏览器的最新版本。如果你的电脑已有以下浏览器的最新版本则直接使用该浏览器极速模式访问<b id="referrer"><script>document.write(targetUrlHTML);</script></b>即可。</p>
+<!-- before-browser -->
+<ul id="browser-list" class="browser-list">
+<li class="browser chrome">
+    <a href="http://www.google.cn/chrome/?hl=zh-CN&standalone=1" target="_blank" id="browser-chrome-link"><img src="/images/chrome.png" width="34" height="34" alt="谷歌浏览器"/>谷歌浏览器 <span id="browser-chrome-badge">Google Chrome</span></a>
+</li>
+<li class="browser firefox">
+    <a href="http://www.mozilla.org/zh-CN/firefox/new/" target="_blank" id="browser-firefox-link"><img src="/images/firefox.png" width="34" height="34" alt="火狐浏览器"/>火狐浏览器<span id="browser-firefox-badge">Mozilla Firefox</span></a>
+</li>
+<li class="browser edge">
+    <a href="http://www.microsoft.com/zh-cn/windows/microsoft-edge" target="_blank" id="browser-edge-link" style="color:#777;cursor:default" onclick="return false;" title="Microsoft Edge 专为 Windows 10 打造！请选择其他浏览器。"><img src="/images/edge_gray.png" width="34" height="34" alt="微软浏览器"/>微软浏览器<span id="browser-edge-badge">Microsoft Edge</span></a>
+</li>
+
+<li class="browser se360">
+    <a href="https://dl.360safe.com/netunion/20140425/360se+75526+n1abed0ce91.exe" target="_blank" id="browser-se360-link"><img src="/images/se360.png" width="34" height="34" alt="360安全浏览器"/>360安全浏览器<span id="browser-se360-badge">小白用户选择</span></a>
+</li>
+<li class="browser qqbrowser">
+    <a href="https://qqbrowser-1251013107.file.myqcloud.com/QQBrowser_subid@100002_urlid@100002.exe" target="_blank" id="browser-qqbrowser-link"><img src="/images/qqbrowser.png" width="34" height="34" alt="QQ浏览器9"/>QQ浏览器9<span id="browser-qqbrowser-badge">腾讯用户推荐</span></a>
+</li>
+<li class="browser clearleft"></li>
+</ul>
+<!-- after-browser --><div id="win-danger" class="clearboth"><div id="win-danger-text" class="alert-danger"><span class="arrow"></span>Microsoft Edge 专为  Windows 10 打造！您的电脑操作系统不是 Windows 10 ，请选择其他浏览器或升级至 Windows 10 系统。</div></div>
+<div class="hr"></div>
+<h2>为什么会出现这个页面？</h2>
+<p>如果你不知道升级浏览器是什么意思，请请教一些熟练电脑操作的朋友。如果你使用的不是IE6/7/8/9/10，而是360浏览器、QQ浏览器、搜狗浏览器等，出现这个页面是因为你使用的不是该浏览器的最新版本，升级至最新即可。</p>
+<div class="hr"></div>
+<h2>一起抵制IE6、IE7、IE8、IE9、IE10</h2>
+<p>为了兼容这个曾经的浏览器霸主，网页设计人员需要做大量的代码工作。对于普通用户而言，低版本IE更是一个岌岌可危的安全隐患，在Windows历史上几次大的木马病毒事件都是利用IE漏洞进行传播。所以，请和我们一起抵制IE的过期版本！</p>
+<div class="hr"></div>
+
+</div>
+<div style="display:none !important"><script id="hello-world-js" src="/js/1518/hello.world.js"></script></div>
+</body>
+</html>

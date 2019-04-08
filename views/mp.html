@@ -1,0 +1,887 @@
+﻿<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.app.title}}</title>
+<script src="/js/jquery-1.11.1.min.js"></script>
+<script src="/js/jquery.form.js"></script>
+<script src="/js/layer/layer.js"></script>
+<script src="/js/vue.js"></script>
+<script src="/js/vue-router.js"></script>
+<script src="/js/axios.min.js"></script>
+
+<script src="/js/photoclip/hammer.min.js"></script>
+<script src="/js/photoclip/iscroll-zoom-min.js"></script>
+<script src="/js/photoclip/lrz.all.bundle.js"></script>
+<script src="/js/photoclip/PhotoClip.js"></script>
+<script src="/js/photoclip/qs.js"></script>
+<link rel="stylesheet" href="/css/app.css?t=1102251" type="text/css" /> 
+<link rel="stylesheet" href="/assets/adminlte/css/font-awesome.min.css">
+    
+    <link rel="stylesheet" href="/assets/adminlte/css/ionicons.min.css"> 
+<script src="/js/jqweui/js/jquery-weui.min.js"></script>
+<script src="/mp/vue?app={{.appcode}}" type="text/javascript"></script>
+<link rel="stylesheet" href="/mp/css?app={{.appcode}}" type="text/css" />
+<style type="text/css">
+.fixnav{ 
+  position: fixed; 
+  bottom: 0; 
+  left: 0;  
+  right: 0;
+  background: #fff;  
+  border-top: #e8e9eb solid 1px; 
+  text-align: center;
+  padding:0 0 5px;
+  p{
+    line-height:12px;
+  }
+}
+.fixnav a{margin-top:5px;}
+.fixnav a img{margin:auto;}
+.iconfont,.fixnav p{ color: #c6c6c6; }
+.iconfont{ font-size:20px;}
+.router-link-exact-active p,.router-link-exact-active .iconfont{ color: #fe4543; }
+
+.vue-pull-to-wrapper[data-v-12abd9fb] {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-box-direction: normal;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	height: 100%
+}
+
+.scroll-container[data-v-12abd9fb] {
+	-webkit-box-flex: 1;
+	-webkit-flex: 1;
+	flex: 1;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch
+}
+
+.vue-pull-to-wrapper .action-block[data-v-12abd9fb] {
+	position: relative;
+	width: 100%
+}
+
+.default-text[data-v-12abd9fb] {
+	height: 100%;
+	line-height: 50px;
+	text-align: center
+}
+
+
+.fa {
+    font-size: 20px;
+}
+.fa, .fixnav p {
+    color: #c6c6c6;
+}
+.router-link-exact-active p, .router-link-exact-active .fa {
+    color: #fe4543;
+}
+.router-link-exact-active p, .router-link-exact-active .fa {
+    color: #fe4543;
+}
+
+.tit_cls {
+    color: #333;
+    font-size: 18px;
+    background: #fff;
+    padding: 10px 10px;
+}
+
+.tit_cls i {
+    font-size: 18px;
+    padding-right: .4rem;
+}
+
+.icon-add {
+    padding-right: 0;
+    font-size: 18px;
+}
+
+.weui-cell__hd img {
+    display: block;
+    margin-right: 5px;
+}
+
+.pic_list {
+    width: 40px;
+    height: 40px;
+}
+weui.min.css:5
+a img {
+    border: 0;
+}
+
+
+
+
+
+
+
+
+.child-view {  
+  position: absolute;  
+  left: 0;  
+  top: 0;  
+  width: 100%;  
+  height: 100%;
+  transition: all .5s cubic-bezier(.55,0,.1,1);  
+}  
+.slide-left-enter, .slide-right-leave-active {  
+  opacity: 0;  
+  -webkit-transform: translate(30px, 0);  
+  transform: translate(30px, 0);  
+}  
+.slide-left-leave-active, .slide-right-enter {  
+  opacity: 0;  
+  -webkit-transform: translate(-30px, 0);  
+  transform: translate(-30px, 0);  
+}  
+
+</style>
+
+</head>
+
+
+<body>
+<script type="text/javascript">
+var _test=Vue.component('test', {
+        template: '<div  class="weui-cell">hello test</div>',
+        data(){
+            return {
+            }
+        },
+		created() {
+			console.log('test is created...');
+		}
+})
+var _info=Vue.component('field-info', {
+		props: [],
+        template: '\
+		<div>\
+			<div class="pro" style="position: fixed; top: 0; margin-bottom: 80px;z-index: 800000; width: 100%;">\
+				<div class="fixDivtit">\
+					<div class="tit_cls flexbtn">\
+						<span><i  class="iconfont icon-left" style="display:none0;" @click="prev"></i><span v-text="code"></span></span>\
+						<i class="iconfont icon-add"></i>\
+					</div>\
+				</div>\
+			</div>\
+			<form id="form1"  method="post" action="/xapi/editpost">\
+			<div class="weui-cells " style="margin-top: 5px;" v-for="row in fields"  :key="row.id">\
+				<field-input v-bind:name="row.field_code" v-bind:id="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'文本框\' "></field-input>\
+				<field-select v-bind:fieldid="row.id" v-bind:name="row.field_code" v-bind:title="row.field_name" v-bind:id="row.field_code" v-bind:value="row._value" v-if="row.form_type==\'下拉框\' "></field-select>\
+				<field-switch v-bind:name="row.field_code" v-bind:id="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'开关按钮\'"></field-switch>\
+				<field-editor v-bind:name="row.field_code" v-bind:id="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'编辑框\'"></field-editor>\
+				<field-date v-bind:id="row.field_code" v-bind:name="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'日期选择\' "></field-date>\
+				<field-pic v-bind:id="row.field_code" v-bind:name="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'图片上传\'"></field-pic>\
+				<field-radio  v-bind:fieldid="row.id" v-bind:name="row.field_code" v-bind:id="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'单选框\'"></field-radio>\
+				<field-checkbox v-bind:fieldid="row.id" v-bind:name="row.field_code" v-bind:id="row.field_code" v-bind:title="row.field_name" v-bind:value="row._value" v-if="row.form_type==\'复选框\' "></field-checkbox>\
+			</div>\
+				<input type="hidden" id="_id" name="_id" v-bind:value="id" />\
+				<input type="hidden" id="_code" name="_code" v-bind:value="code" />\
+			</form>\
+			<div class="weui-cells__title">\
+				<a href="javascript:;" @click="submit" class="weui-btn weui-btn_warn">保存</a>\
+			</div>\
+		</div>\
+		',
+        data() {
+        return {
+            list: [],
+            code: "",
+            id: 0,
+            fields: {},
+            m: {}
+        }
+    },
+    methods: {
+        prev() {
+            this.$router.go(-1);
+        },
+		submit:function(){  
+			$this=this;
+			$('#form1').ajaxSubmit(function (data) {
+                if (data!= '1') {
+                  layer.msg('操作失败,请稍后重试！');
+                } else {
+                  var ly=layer.alert('操作成功！',function(){
+					$this.$router.go(-1);  
+					layer.close(ly);
+				  });
+                }
+            });
+        }
+    },
+    created() {
+        $this = this;
+        $this.code = $this.$route.query.c;
+        $this.id = $this.$route.query.id;
+        axios.get('/xapi/fieldjson?code='+$this.code+'&id=' + $this.$route.query.id)
+            .then(function (response) {
+                console.log(response);
+                if (response.data != null) $this.fields = response.data;
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+
+        axios.get('/xapi/datajson?code='+$this.code+'&id=' + $this.$route.query.id)
+            .then(function (response) {
+                console.log(response);
+                if (response.data != null) $this.m = response.data;
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+
+    },
+    mounted() {
+        console.log('datainfo mounted');
+
+    }
+})
+//数据列表
+var _list=Vue.component('filed-list', {
+        props: [],
+        template:'\
+		<div>\
+			<div class="pro" style="position: fixed; top: 0; margin-bottom: 80px;z-index: 800000; width: 100%;">\
+				<div class="fixDivtit">\
+					<div class="tit_cls flexbtn">\
+						<span><i  class="iconfont icon-left" style="display:none0;" @click="prev"></i><span v-text="title"></span></span>\
+						<i class="iconfont icon-add" @click="add"></i>\
+					</div>\
+				</div>\
+			</div>\
+			<div class="weui-cells infinite" style="margin-top: 60px;">\
+				<router-link class="weui-cell weui-cell_access" v-for="row in list" :key="row.id" :to="\'/_info?c=\'+code+\'&id=\'+row.id">\
+					<div class="weui-cell__hd">\
+						<img class="pic_list" v-if="row.img" v-bind:src="row.img">\
+					</div>\
+					<div class="weui-cell__bd">\
+						<h4 class="weui-media-box__title">\
+						<p v-text="row.title"></p>\
+						</h4>\
+						<p class="weui-media-box__desc" v-text="row.desc"></p>\
+					</div>\
+					<div class="weui-cell__ft">\
+						<span></span>\
+					</div>\
+				</router-link>\
+			</div>\
+			<div class="weui-loadmore">\
+				<i class="weui-loading"></i>\
+				<span class="weui-loadmore__tips">正在加载</span>\
+			</div>\
+		</div>\
+		',
+        data() {
+			return {
+				title:"数据管理",
+				code:"",
+				list: [],
+				page: 1,
+				pages: 1
+			}
+		},
+		methods: {
+			prev() {
+					this.$router.go(-1);
+				},
+				add() {
+					$this.$router.push("/app/0");
+				}
+		},
+		created() {
+			$this = this;
+			$this.code=$this.$route.query.code;
+			$this.title=$this.$route.query.title;
+			if($this.title=="" || $this.title==undefined){
+				$this.title="数据管理";
+			}
+			axios.get('/xapi/listjson?code='+$this.code)
+			.then(function (response) {
+				console.log(response);
+				if(response.data!=null && response.data!=""){
+					$this.list=response.data.rows;
+					$this.title=response.data.extra;
+				}else{
+					$('.weui-loadmore').html("没有更多数据...");
+					$('.weui-loadmore').show();
+					return;
+				}
+			})
+			.catch(function (error) {
+				console.log(error);
+			});
+		},
+		mounted() {
+			console.log('applist mounted');
+			$this = this;
+			var loading = false;
+			var page = 1;
+			var pages = 10;
+
+			$(document.body).infinite().on("infinite", function () {
+				if (loading) return;
+				loading = true;
+				if (page >= pages || pages ==undefined) {
+					$('.weui-loadmore').html("没有更多数据...");
+					$('.weui-loadmore').show();
+					return;
+				}
+				page++;
+				$(".weui-loadmore").show();
+				console.log('page:' + page + '  pages:' + pages);
+
+				axios.get("/xapi/listjson?code="+$this.code+"&page=" + page)
+					.then(function (response) {
+						console.log('--------------------------');
+						console.log(response.data);
+						if (response.data != null && response.data!="") {
+							pages = response.data.pages;
+							$this.list = $this.list.concat(response.data.rows);
+							$(".weui-loadmore").hide();
+						}else{
+							$('.weui-loadmore').html("没有更多数据...");
+							$('.weui-loadmore').show();
+							return;
+						}
+					})
+					.catch(function (error) {
+						console.log(error);
+					});
+				setTimeout(function () {
+					loading = false;
+					console.log("setTimeout");
+					$(".weui-loadmore").hide();
+				}, 2000);
+			});
+		}
+    })
+//文本框
+Vue.component('field-input', {
+        props: ['id', 'name','title','value'],
+        template: '\
+		<div class="weui-cell">\
+			<div  class="weui-cell__bd">\
+			 <p v-text="title"></p>\
+			</div> \
+			<div  class="weui-cell__ft">\
+			 <input v-bind:id="id" style="text-align: right;" v-bind:name="name" type="text" v-bind:value="value"  class="weui-input" />\
+			</div>\
+		</div>\
+		',
+        data() {
+            return {
+                
+            }
+        }
+    })
+	//error
+var _error=Vue.component('app-notfound', {
+        props: ['id','name', 'title', 'value'],
+        template: '\
+		<div class="weui-msg">\
+		  <div class="weui-msg__icon-area"><i class="weui-icon-warn weui-icon_msg"></i></div>\
+		  <div class="weui-msg__text-area">\
+			<h2 class="weui-msg__title">页面未找到</h2>\
+			<p class="weui-msg__desc">页面未找到,请检查连接是否正确...</p>\
+		  </div>\
+		</div>\
+		',
+        data() {
+            return {
+            }
+        }
+    })
+    //详情框
+Vue.component('field-detail', {
+        props: ['name', 'placename', 'values'],
+        template: '<div  class="weui-cell"><div class="weui-cell__hd"><label  class="weui-label" v-text="placename"></label></div> <div  class="weui-cell__bd"><span v-text="values"></span></div></div>',
+        data() {
+            return {
+                //val:''
+            }
+        }
+    })
+	//开关按钮
+Vue.component('field-switch', {
+        props: ['id','name', 'title', 'value'],
+        template: '\
+		<div class="weui-cells weui-cells_form">\
+			<div class="weui-cell weui-cell_switch">\
+				<div class="weui-cell__bd" v-text="title"></div>\
+				<div class="weui-cell__ft">\
+					<input type="checkbox" v-bind:id="id" v-bind:name="name" :checked="value==\'1\'" class="weui-switch">\
+				</div>\
+			</div>\
+		</div>\
+		',
+        data() {
+            return {
+                //val:''
+            }
+        }
+    })
+	//编辑框
+Vue.component('field-editor', {
+        props: ['id','name', 'title', 'value'],
+        template: '\
+		<div class="weui-cells weui-cells_form">\
+			<div class="weui-cells__title" v-text="title" style="margin-top:5px;font-size:16px;color:#000;"></div>\
+			<div class="weui-cells weui-cells_form">\
+				<div class="weui-cell">\
+					<div class="weui-cell__bd">\
+						<textarea style="font-size: 16px;" class="weui-textarea" :id="id" :name="name" placeholder="请输入文本" rows="3" v-text="value"></textarea>\
+						<div class="weui-textarea-counter"><span>0</span>/200</div>\
+					</div>\
+				</div>\
+			</div>\
+		</div>\
+		',
+        data() {
+            return {
+                //val:''
+            }
+        }
+    })
+    //下拉框
+Vue.component('field-select', {
+    props: ['id','name','title','value','fieldid'],
+    template: '\
+                <div class="weui-cell" style="padding: 5px 15px;">\
+                    <div class="weui-cell__hd"><label :for="id" class="weui-label" v-text="title"></label></div>\
+                    <div class="weui-cell__bd">\
+                        <select class="weui-select" v-bind:id="id" v-bind:name="name" type="text" style="direction: rtl;">\
+                             <option v-for="item in items" :value="item.key" :selected="value==item.id" v-text="item.val">\
+                        </option>\
+                        </select>\
+                    </div>\
+                </div>\
+            ',
+    data() {
+        return {
+            items: []
+        }
+    },
+    mounted() {
+        var that = this;
+        axios.get('/xapi/itemjson?id=' + that.fieldid)
+            .then(function (response) {
+                //var res = JSON.stringify(response);
+                var data = response.data;
+                that.items = data;
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+    }
+})
+
+//日期
+Vue.component('field-date', {
+    props: ['id','name', 'title', 'value'],
+    template:'\
+            <div class="weui-cells weui-cells_form">\
+                <div class="weui-cell">\
+                    <div class="weui-cell__hd"><label :for="name" class="weui-label" v-text="title"></label></div>\
+                    <div class="weui-cell__bd">\
+                        <input style="text-align: right;direction: rtl;" class="weui-input" :id="name" :name="name" type="date" :value="getFDate()" />\
+                    </div>\
+                </div>\
+            </div>',
+    data() {
+        return {
+        }
+    },
+    mounted() {
+		console.log('date.....');
+    },
+    methods: {
+        getFDate() {
+                var that = this;
+                var date = that.value;
+                if (date != "" && date !=undefined) {
+					console.log('date:'+date);
+                    var d = eval('new ' + date.substr(1, date.length - 2));
+
+                    var ar_date = [d.getFullYear(), d.getMonth() + 1, d.getDate()];
+
+                    for (var i = 0; i < ar_date.length; i++) {
+                        ar_date[i] = that.dFormat(ar_date[i]);
+                    }
+                    var date = ar_date.join('-');
+                    return date;
+                } else {
+                    return "";
+                }
+            },
+            dFormat(i) {
+                return i < 10 ? "0" + i.toString() : i;
+            }
+    }
+})
+
+//单选框
+Vue.component('field-radio', {
+    props: ['id','name', 'title', 'value','fieldid'],
+    template: '\
+                <div class="weui-cells weui-cells_form">\
+                <div class="weui-cells__title" v-text="title" style="margin-top:5px;font-size:16px;color:#000;"></div>\
+                <div class="weui-cells weui-cells_checkbox">\
+                    <label class="weui-cell weui-check__label" v-bind:for="name+index" v-for="checks,index in  items">\
+                        <div class="weui-cell__hd">\
+                            <input type="radio" class="weui-check" v-bind:value="checks.id" v-bind:name="name" v-bind:id="name+index" :checked="value==checks.id" />\
+                            <i class="weui-icon-checked"></i>\
+                        </div>\
+                        <div class="weui-cell__bd">\
+                            <p v-text="checks.val"></p>\
+                        </div>\
+                    </label>\
+                </div>\
+            </div>',
+    data() {
+        return {
+			items: [],
+            radio: {
+                title: "-",
+                names: this.name,
+                items: [ ]
+            }
+        }
+    },
+    mounted() {
+        var that = this;
+        axios.get('/xapi/itemjson?id=' + that.fieldid)
+            .then(function (response) {
+                var data = response.data;
+                that.items = data;
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+    }
+})
+
+
+//复选框
+Vue.component('field-checkbox', {
+    props: ['id','name', 'title', 'value','fieldid'],
+    template: '\
+                   <div class="weui-cells weui-cells_form">\
+         <div class="weui-cells__title" v-text="title" style="margin-top:5px;font-size:16px;color:#000;"></div>\
+         <div class="weui-cells weui-cells_checkbox">\
+             <label class="weui-cell weui-check__label" v-bind:for="names+index" v-for="checks,index in  items">\
+                 <div class="weui-cell__hd">\
+                     <input type="checkbox" class="weui-check" v-model="val"  v-bind:value="checks.id" v-bind:name="name" v-bind:id="name+index" />\
+                     <i class="weui-icon-checked"></i>\
+                 </div>\
+                 <div class="weui-cell__bd">\
+                     <p v-text="checks.val"></p>\
+                 </div>\
+             </label>\
+         </div>\
+     </div> ',
+    data() {
+        return {
+			items: [],
+            checkbox: {
+                title: "-",
+                names: "check1",
+                items: []
+            },
+			val:this.value.split(',')
+        }
+    },
+    mounted() {
+        var that = this;
+        that.names = that.name;
+        axios.get('/xapi/itemjson?id=' + that.fieldid)
+            .then(function (response) {
+                var data = response.data;
+                that.items = data;
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+    }
+})
+
+//图片上传
+Vue.component('field-pic', {
+    props: ['id','name', 'title', 'value'],
+    template: '\
+                  <div>\
+                          <div class="weui-cells" style="margin-top: 0;">\
+                               <a class="weui-cell weui-cell_access" :id="\'flieDiv\'+name" >\
+                                <input type="file" :id="\'file\'+name" accept="image/*" style=" position: absolute; left: 0; opacity: 0;top: 0;width: 100%;height: 100%;z-index: 10;"/>\
+                                <div class="weui-cell__bd"><p v-text="title"></p></div>\
+                                 <div class="weui-cell__ft logo_cls" style="height:75px;">\
+                                   <i class="iconfont  " v-if="value==\'\'||src==null" style="font-size:28px;color:#e7e7e7;">\
+                                   </i>\
+                                   <img v-bind:src="value" :id="\'img\'+name" style="height:75px;z-index: 10000000;"  v-else/>\
+                                   <input type="hidden" :id="name" :name="name"  style="display:none" :value="src"/>\
+                                 </div>\
+                               </a>\
+                             </div>\
+                          <div class="photoDIV" v-show="showphoto1!=0">\
+                             <div :id="\'clipArea\'+name" style="width: 100%;height: 100%;"></div>\
+                             <a href="javascript:;" :id="\'clipBtn\'+name" class="weui-btn" style="position: fixed;top: 80px;right:10px;line-height:30px;z-index: 1000;background-color: #1aad19;">使用</a>\
+                             <a href="javascript:;" class="weui-btn weui-btn_default quxiao" @click="quxiao" style="position: fixed;top: 80px;line-height:30px;z-index: 1000;">取消</a>\
+                           </div>\
+                 </div>',
+    data() {
+        return {
+            showphoto1: '',
+            val: '',
+            Headimgurl: '',
+            src: this.value,
+
+            picphoto: '', //未剪切前图片
+
+        }
+    },
+    methods: {
+
+        quxiao() {
+            this.showphoto1 = 0;
+            this.picphoto = '';
+        },
+		showimg(){
+			alert('hello');
+		}
+    },
+	created(){
+		console.log('field-pic created...'+this.src);
+	},
+    mounted() {
+        var $this = this;
+		console.log('field-pic value...'+$this.value);
+        var clipArea = new PhotoClip("#clipArea" + $this.name, {
+            size: [300, 300], //裁剪框大小
+            outputSize: [600, 600], //打开图片大小，[0,0]表示原图大小
+            // img: $this.picphoto,
+            file: "#file" + $this.name,
+            view: "#view", //裁剪预览图片id（需要的自行添加）
+            ok: "#clipBtn" + $this.name,
+            loadStart: function () { //图片开始加载的回调函数。this 指向当前 PhotoClip 的实例对象，并将正在加载的 file 对象作为参数传入。（如果是使用非 file 的方式加载图片，则该参数为图片的 url）
+                    $this.showphoto1 = 1;
+                    console.log('开始读取照片');
+                },
+                loadComplete: function () { //图片加载完成的回调函数。this 指向当前 PhotoClip 的实例对象，并将图片的 <img> 对象作为参数传入。
+                    console.log('照片读取完成');
+                },
+                done: function (dataURL) { //裁剪完成的回调函数。this 指向当前 PhotoClip 的实例对象，会将裁剪出的图像数据DataURL作为参数传入。      
+                    //console.log(dataURL); //dataURL裁剪后图片地址base64格式提交给后台处理
+                    axios({
+                            method: 'POST',
+                            url: '/xapi/upbase64',
+                            data: {
+                                b: dataURL
+                            },
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded' //请求头
+                            },
+                            transformRequest: [
+                                function (data) {
+                                    data = Qs.stringify(data) //序列化参数
+                                    return data
+                                }
+                            ]
+                        })
+                        .then(function (response) {
+                            console.log(response.data)
+							//console.log('之前:'+$this.src);
+                            $this.src = response.data;
+							//console.log('之后:'+$this.src);
+							console.log($this.id);
+							$('#img'+$this.name).attr('src',$this.src);
+                            $this.showphoto1 = 0;
+                        })
+                        .catch(function (error) {
+                            console.log(error)
+                        })
+
+                }
+        });
+    }
+})
+
+//图片上传
+Vue.component('field_imgupload', {
+	created(){
+		console.log("field_imgupload created....");
+	},
+    mounted() {
+            console.log("field_imgupload mounted....");
+            var tmpl = "<li class=\'\ weui-uploader__file \'\ style=\'\ background-image:url(#url#) \'\></li>",
+                $gallery = $("#gallery"),
+                $galleryImg = $("#galleryImg"),
+                $uploaderInput = $("#uploaderInput"),
+                $uploaderFiles = $("#uploaderFiles");
+
+            $uploaderInput.on("change", function (e) {
+                var src, url = window.URL || window.webkitURL || window.mozURL,
+                    files = e.target.files;
+                for (var i = 0, len = files.length; i < len; ++i) {
+                    var file = files[i];
+
+                    if (url) {
+                        src = url.createObjectURL(file);
+                    } else {
+                        src = e.target.result;
+                    }
+
+                    $uploaderFiles.append($(tmpl.replace('#url#', src)));
+                }
+            });
+            var index; //第几张图片
+            $uploaderFiles.on("click", "li", function () {
+                index = $(this).index();
+                $galleryImg.attr("style", this.getAttribute("style"));
+                $gallery.fadeIn(100);
+            });
+            $gallery.on("click", function () {
+                $gallery.fadeOut(100);
+            });
+            //删除图片
+            $(".weui-gallery__del").click(function () {
+                $uploaderFiles.find("li").eq(index).remove();
+            });
+        },
+        data() {
+            return {
+				id:0,
+				name:"",
+				title:"",
+				value:""
+            }
+        },
+        template: ' \
+		<div>\
+			<div class="weui-gallery" id="gallery"> <span class="weui-gallery__img" id="galleryImg"></span> \
+				<div class="weui-gallery__opr">\
+					<a href="javascript:" class="weui-gallery__del"> <i class="weui-icon-delete weui-icon_gallery-delete"></i> \
+					</a>\
+				</div>\
+			</div>\
+			<div class="weui-cells weui-cells_form">\
+				<div class="weui-cell">\
+					<div class="weui-cell__bd">\
+						<div class="weui-uploader">\
+							<div class="weui-uploader__hd">\
+								<p class="weui-uploader__title">图片上传</p>\
+							</div>\
+							<div class="weui-uploader__bd">\
+								<ul class="weui-uploader__files" id="uploaderFiles"></ul>\
+								<div class="weui-uploader__input-box">\
+									<input id="uploaderInput" class="weui-uploader__input zjxfjs_file" type="file" accept="image/*" multiple="">\
+								</div>\
+							</div>\
+						</div>\
+					</div>\
+				</div>\
+			</div>\
+		</div>\
+		'
+})
+
+{{if eq .isnav "1"}}
+var nav_menu = Vue.extend({
+    template: '\
+	<div class="flex fixnav">\
+	<router-link v-bind:to="n.path" v-for="n,index in list" v-bind:key="index">\
+		<i v-bind:class="n.icon" class=""></i><p v-text="n.text">-</p>\
+	</router-link>\
+    </div>	',
+    data() {
+        return {
+            list: [
+			{{range $i,$n :=.navmenu}}
+			{
+                "path": "{{$n.url}}",
+                "icon": "{{$n.icon}}",
+                "text": "{{$n.title}}"
+            },
+			{{end}}
+			]
+        }
+    },
+    created() {
+        console.log('nav created');
+    },
+    mounted() {
+        console.log('nav mounted');
+    }
+}) 
+Vue.component('nav_menu', nav_menu);
+{{end}}
+</script>
+<div id="app">
+
+	<transition v-bind:name="transitionName">
+        <router-view class="child-view"></router-view>
+    </transition>
+
+</div>
+</body>
+
+<script>
+var tpl="{{str2html .pagetpl}}";
+eval(tpl);
+
+var a="";
+a+="var routes = [ ";
+a+="	{{str2html .routes}}";
+a+=",{path:'/_list',component:_list,meta:{index:9001}}";
+a+=",{path:'/_info',component:_info,meta:{index:9002}}";
+a+=",{path:'/_error',component:_error,meta:{index:9003}}";
+a+="]";
+eval(a);
+
+const router = new VueRouter({
+  routes // (缩写) 相当于 routes: routes
+})
+
+router.beforeEach((to, from, next) => {
+  if (to.matched.length === 0) { 
+    from.name ? next({
+      name: from.name
+    }) : next('/_error'); 
+  } else {
+    next(); //如果匹配到正确跳转
+  }
+});
+
+new Vue({
+	router,
+    el: '#app',
+    data: {
+		transitionName:"slide-right"
+    },
+    methods:{
+    },
+	mounted(){ 
+	},
+	watch: {
+     $route(to, from) {
+      if(to.meta.index > from.meta.index){
+        this.transitionName = 'slide-left';
+		console.log('-----------------a');
+      }else{
+        this.transitionName = 'slide-right';
+		console.log('-----------------b');
+      }
+     }
+   }
+})
+
+</script>
+</html>
