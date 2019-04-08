@@ -1,0 +1,30 @@
+[{
+	"id":1,
+	"text":"Ä¬ÈÏÍ·Ïñ",
+	"icon":"0.jpg"
+},{
+	"id":2,
+	"text":"1",
+	"icon":"1.jpg"
+},{
+	"id":3,
+	"text":"2",
+	"icon":"2.jpg",
+	"selected":true
+},{
+	"id":4,
+	"text":"3",
+	"icon":"3.jpg"
+},{
+	"id":5,
+	"text":"4",
+	"icon":"4.jpg"
+},{
+	"id":6,
+	"text":"5",
+	"icon":"5.jpg"
+},{
+	"id":7,
+	"text":"6",
+	"icon":"6.jpg"
+}]
