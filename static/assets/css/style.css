@@ -1,0 +1,54 @@
+﻿@charset "utf-8";
+
+/* CSS Document */
+
+
+/*焦点图开始*/
+.picFocus{ float:left; width:500px;position:relative;height:300px; display:inline; overflow:hidden;}
+#picBox{width:500px; height:300px; overflow:hidden; position:relative;}
+#showPic{ margin:0; padding:0; list-style:none; height:305px; width:3400px; position:absolute;}
+#showPic li{ float:left; margin:0; padding:0; height:305px;width:560px;position:relative;}
+#showPic li a,.lBox .lSide .bImg{color:#fff;}
+#showPic li a:hover,.lBox .lSide .bImg:hover{color:#ff0;}
+#showPic li h5{position:absolute;height:50px; width:470px;z-index:5; bottom:0; overflow:hidden; background:url(../images/bgFocus.png) repeat-x top center; text-indent:1em; font:500 16px/24px "微软雅黑";}
+
+
+#showPic li img{ display:block;width:470px;height:270px;}
+#iconNum{ position:absolute; bottom:25px; right:50px; z-index:10;}
+#iconNum li{  float:left;width:9px; height:9px; list-style:none;cursor:pointer; padding:0; margin-left:10px;line-height:28px; text-align:center;color:#fff;background:#fff; border-radius:9px;}
+#iconNum li:hover,#iconNum li.active{background-color:#e0a200;}
+
+
+/*广告焦点图开始*/
+.picFocusGG{ float:left; width:958px;position:relative;height:113px; display:inline; overflow:hidden;}
+#picBoxGG{width:958px; height:113px; overflow:hidden; position:relative;}
+#showPicGG{ margin:0; padding:0; list-style:none; height:305px; width:3400px; position:absolute;}
+#showPicGG li{ float:left; margin:0; padding:0; height:113px;width:958px;position:relative;}
+#showPicGG li a,.lBox .lSide .bImg{color:#fff;}
+#showPicGG li a:hover,.lBox .lSide .bImg:hover{color:#ff0;}
+/*#showPicGG li h5{position:absolute;height:50px; width:470px;z-index:5; bottom:0; overflow:hidden; background:url(../images/bgFocus.png) repeat-x top center; text-indent:1em; font:500 16px/24px "微软雅黑";}*/
+
+
+
+#showPicGG li img{ display:block;width:958px;height:113px;}
+#iconNumGG{ position:absolute; bottom:10px; right:10px; z-index:10;}
+#iconNumGG li{  float:left;width:9px; height:9px; list-style:none;cursor:pointer; padding:0; margin-left:10px;line-height:28px; text-align:center;color:#fff;background:#fff; border-radius:9px;}
+#iconNumGG li:hover,#iconNumGG li.active{background-color:#e0a200;}
+
+
+
+/*部门焦点图开始*/
+.picFocusWZ{ float:left; width:310px;position:relative;height:250px; display:inline; overflow:hidden;}
+#picBoxWZ{width:310px; height:250px; overflow:hidden; position:relative;}
+#showPicWZ{ margin:0; padding:0; list-style:none; height:250px; width:3400px; position:absolute;}
+#showPicWZ li{ float:left; margin:0; padding:0; height:250px;width:310px;position:relative;}
+#showPicWZ li a,.lBox .lSide .bImg{color:#fff;}
+#showPicWZ li a:hover,.lBox .lSide .bImg:hover{color:#ff0;}
+#showPicWZ li h0{position:absolute;height:50px; width:310px;z-index:5; bottom:0; overflow:hidden; background:url(../images/bgFocus.png) repeat-x top center; text-indent:1em; font:500 16px/24px "微软雅黑";}
+
+
+
+#showPicWZ li img{ display:block;width:310px;height:250px;}
+#iconNumWZ{ position:absolute; bottom:10px; right:10px; z-index:10;}
+#iconNumWZ li{  float:left;width:9px; height:9px; list-style:none;cursor:pointer; padding:0; margin-left:10px;line-height:28px; text-align:center;color:#fff;background:#fff; border-radius:9px;}
+#iconNumWZ li:hover,#iconNumWZ li.active{background-color:#e0a200;}

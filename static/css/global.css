@@ -1,0 +1,25 @@
+@charset "utf-8";
+
+html{overflow-x:hidden;overflow-y:hidden;cursor:default;}
+body{margin:auto;font-size:12px;background:#ffffff;font-family:"宋体";color:#000;}
+img{border:none;}
+ol,ul,li,p,form,dl,dt,dd,h1,h2,h3{margin:0px;padding:0px;list-style-type:none;list-style:none;}
+
+a:link{text-decoration:none;}
+a:visited{text-decoration:none;}
+
+.left{float:left;}
+.right{float:right;}
+.clear{height:0px;margin:0px;padding:0px;overflow:hidden;clear:both;}
+.none{display:none;}
+.hand{cursor:pointer;}
+
+.red{color:#f00;}
+
+.MarT2{margin-top:2px;}
+.MarT8{margin-top:8px;}
+.MarR5{margin-right:5px;}
+.PadTB3{padding-top:3px;padding-bottom:3px;}
+.PadTBL3{padding-top:3px;padding-bottom:3px;padding-left:3px;}
+
+.box150{width:150px;}

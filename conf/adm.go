@@ -77,12 +77,12 @@ func InitRouter() {
 			beego.NSAutoRouter(&adm.MenuController{}),
 			beego.NSAutoRouter(&adm.UserController{}),
 
-			//自定义数据页面
-			beego.NSRouter("/d/list/:code", &adm.DController{}, "get:List"),
-			beego.NSRouter("/d/info/:code", &adm.DController{}, "get:Info"),
-			beego.NSRouter("/d/view/:code", &adm.DController{}, "get:View"),
-			beego.NSRouter("/d/fe/:code", &adm.DController{}, "get:FE"),
-			beego.NSAutoRouter(&adm.DController{}),
+			// //自定义数据页面
+			// beego.NSRouter("/d/list/:code", &adm.DController{}, "get:List"),
+			// beego.NSRouter("/d/info/:code", &adm.DController{}, "get:Info"),
+			// beego.NSRouter("/d/view/:code", &adm.DController{}, "get:View"),
+			// beego.NSRouter("/d/fe/:code", &adm.DController{}, "get:FE"),
+			// beego.NSAutoRouter(&adm.DController{}),
 		)
 	beego.AddNamespace(ns_adm)
 }

@@ -1,0 +1,14 @@
+﻿.panel-title {
+	font-size: 12px;
+	font-weight: bold;
+	color: #777;
+	height: 19px;
+	line-height: 19px;
+}
+.window {
+	background-color: #e3e3e3;
+}
+.window .window-header {
+	background: #e3e3e3;
+}
+
