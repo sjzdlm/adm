@@ -132,11 +132,8 @@ func (c *MainController) Get() {
 
 	var rst = buf.String()
 
-	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
 	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
 	c.Ctx.Output.Body([]byte(rst))
-
-	c.Ctx.WriteString(rst)
 }
 
 //根据菜单ID获取菜单JSON字符串,只有 _uname为 root时才有数据管理功能
@@ -585,7 +582,7 @@ var adm_main_get = `
             </ul>
 		</section>
 		<ul class="user-panel user-footer" style="position: absolute;bottom:0px;color:#5e3e3e;font-size:9px;">
-            <div>如需帮助,请联系QQ:65916383</div>
+            <div>如需帮助,请联系QQ/微信:65916383</div>
         </ul>   
         <!-- /.sidebar -->
     </aside>

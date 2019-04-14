@@ -285,8 +285,16 @@ function doSearch(){
 function doEdit(){
         var row = $('#tt').datagrid('getSelected');
         if (row){
-            $('#win').window('open');
-            $('#win').window('refresh', '/adm/menu/edit?id='+row.id);
+			var w=$('#win').window({
+				width:"420",
+				height:"380",
+				top:($(window).height() - 350) * 0.5,   
+				left:($(window).width() - 680) * 0.5,
+				modal:true,
+				title:'菜单编辑-'+row.id
+			});
+            w.window('open');
+            w.window('refresh', '/adm/menu/edit?id='+row.id);
             $('#ff').form('load',row);
         }else{
             jq.messager.alert('警告','请选择一行数据','warning');
@@ -294,9 +302,18 @@ function doEdit(){
 
 }
 function doAdd() {
-    var row = $('#tt').datagrid('getSelected');
-    $('#win').window('open');
-    $('#win').window('refresh', '/adm/menu/edit?id=');
+	var row = $('#tt').datagrid('getSelected');
+	
+	var w=$('#win').window({
+		width:"420",
+		height:"380",
+		top:($(window).height() - 350) * 0.5,   
+		left:($(window).width() - 680) * 0.5,
+		modal:true,
+		title:'菜单添加'
+	});
+    w.window('open');
+    w.window('refresh', '/adm/menu/edit?id=');
     $('#ff').form('load', row);
 }
 function doRemove(){
