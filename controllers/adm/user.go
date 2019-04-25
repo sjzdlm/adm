@@ -265,7 +265,9 @@ func (c *UserController) EditPost() {
 	var usertype, _ = c.GetInt("usertype", 2)
 	var level, _ = c.GetInt("level", 1)
 	var password = c.GetString("password")
+	var defpage = c.GetString("defpage")
 	var state = c.GetString("state")
+	var mch_id = c.GetString("mch_id")
 
 	var role = c.GetStrings("role")
 	var roles = ""
@@ -297,6 +299,8 @@ func (c *UserController) EditPost() {
 		password=?,
 		state=?,
 		roles=?,
+		defpage=?,
+		mch_id=?,
 		memo=?
 		where id=?
 		`
@@ -309,6 +313,8 @@ func (c *UserController) EditPost() {
 			password,
 			state,
 			roles,
+			defpage,
+			mch_id,
 			memo,
 			id,
 		)
@@ -329,8 +335,10 @@ func (c *UserController) EditPost() {
 			password,
 			state,
 			roles,
+			defpage,
+			mch_id,
 			memo
-		)values(?,?,?,?,?,?,?,?,?)
+		)values(?,?,?,?,?,?,?,?,?,?,?)
 		`
 		var i = db.Exec(sql,
 			username,
@@ -341,6 +349,8 @@ func (c *UserController) EditPost() {
 			password,
 			state,
 			roles,
+			defpage,
+			mch_id,
 			memo,
 		)
 		if i > 0 {
@@ -1380,6 +1390,10 @@ var adm_user_edit = `
 						{{.jstr}}
 						</script>
 					</td>
+				</tr>
+				<tr>
+                    <td>默认页:</td>
+                    <td><input class="easyui-textbox" type="text" name="defpage" style="width:160px;" value="{{.m.defpage}}"></input></td>
                 </tr>
                 <tr>
                     <td>备注:</td>

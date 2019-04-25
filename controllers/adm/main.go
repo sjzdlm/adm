@@ -86,11 +86,14 @@ func (c *MainController) Get() {
 
 	//7.获取系统信息
 	var sys_logo = ""
-	var sys = db.First("select * from adm_system where mch_id=? limit 1", _mch_id)
-	if sys == nil {
+	var sys = db.First("select * from adm_system where user_id=? limit 1", _uid)
+	if len(sys) < 1 {
+		sys = db.First("select * from adm_system where mch_id=? limit 1", _mch_id)
+	}
+	if len(sys) < 1 {
 		sys = db.First("select * from adm_system limit 1")
 	}
-	if sys != nil {
+	if len(sys) >= 1 {
 		c.Data["sysname"] = sys["sys_name"]
 		sys_logo = sys["sys_logo"]
 	} else {
@@ -100,6 +103,10 @@ func (c *MainController) Get() {
 		sys_logo = "/images/logo.png"
 	}
 	c.Data["sys_logo"] = sys_logo
+	if sys["skin"] == "" {
+		sys["skin"] = "skin-red"
+	}
+	c.Data["skin"] = sys["skin"] //皮肤
 
 	//如果用户是root,双击头像跳转新连接,可以进行高级管理
 	if _uname == "root" {
@@ -486,7 +493,7 @@ var adm_main_get = `
     <script src="../plugins/ie9/respond.min.js"></script>
     <![endif]-->
 </head>
-<body class="hold-transition1 skin-green sidebar-mini ">
+<body class="hold-transition1 {{.skin}} sidebar-mini ">
 <div class="wrapper">
 
     <header class="main-header">
@@ -715,7 +722,31 @@ var adm_main_get = `
         
         leftMenu('{{.nid}}');
 
+        // var my_skins = [
+        //     "skin-blue",
+        //     "skin-black",
+        //     "skin-red",
+        //     "skin-yellow",
+        //     "skin-purple",
+        //     "skin-green",
+        //     "skin-blue-light",
+        //     "skin-black-light",
+        //     "skin-red-light",
+        //     "skin-yellow-light",
+        //     "skin-purple-light",
+        //     "skin-green-light"
+        // ];
+        // jQuery.each(my_skins, function (i) {
+        //     $("body").removeClass(my_skins[i]);
+        // });
+
+        // jQuery("body").addClass('{{.skin}}');
+
     });
+
+
+
+
     {{._datajson}}
     function leftMenu(id) {
         $('.navbar-nav li').removeClass('active');
