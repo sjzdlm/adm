@@ -74,6 +74,7 @@ func InitRouter() {
 			// beego.NSRouter("/tb", &adm.TbController{}),
 			// beego.NSAutoRouter(&adm.TbController{}),
 
+			beego.NSAutoRouter(&adm.MchController{}),
 			beego.NSAutoRouter(&adm.MenuController{}),
 			beego.NSAutoRouter(&adm.UserController{}),
 

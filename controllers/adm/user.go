@@ -859,7 +859,7 @@ function doAdd() {
     w.window('refresh', '/adm/user/edit?id=0');
     $('#ff').form('load', row);
 }
-function doRemove(){
+function doDel(){
     var row = $('#tt').datagrid('getSelected');
     if (row) {
         jq.messager.confirm('Confirm', '确定要删除吗?', function (r) {
@@ -883,7 +883,9 @@ function doRemove(){
     $(function(){
 
     })
-
+	function doMch(){
+		top.addTab("企业管理","/adm/mch/list");
+	}
 
 	function rowformater_headimg(value, row, index) {
 		//return "<span class=' "+value+"'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
@@ -893,18 +895,10 @@ function doRemove(){
        if (value == undefined) {
         return "";
 		}
-		/*json格式时间转js时间格式*/
-		// value = value.substr(1, value.length - 2);
-		// var obj = eval('(' + "{Date: new " + value + "}" + ')');
-		// var dateValue = obj["Date"];
-		// if (dateValue.getFullYear() < 1900) {
-		// 	return "";
-		// }
-
 		return value;//dateValue.Format("yyyy-MM-dd hh:mm:ss");
     }
 	function rowformater_detail(value, row, index) {
-		return "<span >详情</span>";
+		return "<span ></span>";
     }
     </script>
 </head>
@@ -915,7 +909,8 @@ function doRemove(){
            singleselect="true" pagination="true" fitcolumns="true" fit="true">
         <thead>
             <tr>
-                <th field="id" width="30" sortable="true">编号</th>
+				<th field="id" width="30" sortable="true">编号</th>
+				<th field="mch_id" width="30" sortable="true">企业</th>
                  <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>             
                 <th field="username" align="right" sortable="true" width="70">用户名</th>
 				<th field="realname" align="right" sortable="true" width="70">姓名</th>
@@ -936,13 +931,14 @@ function doRemove(){
         <div style="margin-bottom:5px">
             <a href="#" class="easyui-linkbutton" iconcls="icon-56" plain="true" onclick="doAdd();">新建</a>
             <a href="#" class="easyui-linkbutton" iconcls="icon-1" plain="true" onclick="doEdit();">编辑</a>
-            <a href="#" class="easyui-linkbutton" iconcls="icon-no" plain="true" onclick="doRemove();">删除</a>
+            <a href="#" class="easyui-linkbutton" iconcls="icon-no" plain="true" onclick="doDel();">删除</a>
         </div>
         <div>
             查询参数: <input class="easyui-textbox" id="qtxt" style="width:80px">
 
 
-            <a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>
+			<a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>&nbsp;
+			<a href="#" class="easyui-linkbutton" iconcls="icon-43" onclick="doMch();">企业</a>
         </div>
     </div>
 
@@ -1322,7 +1318,7 @@ var adm_user_edit = `
                     <td>
                         <select id="mch_id" class="easyui-combobox" name="mch_id" style="width:160px;" data-options="required:true" editable="false">
                             {{range $k,$v:=.mchlist}}
-                            <option value="{{$v.mch_id}}">{{$v.mch_name}}</option>
+                            <option value="{{$v.id}}">{{$v.mch_name}}</option>
                             {{end}}
                         </select>
                         <script type="text/javascript">
@@ -1350,7 +1346,7 @@ var adm_user_edit = `
 						</script>
                     </td>
                 </tr>
-				<tr>
+				<tr style="display:none;">
                     <td>级别:</td>
                     <td>
                         <select id="level" class="easyui-combobox" name="level" style="width:160px;" data-options="required:true" editable="false">
