@@ -610,8 +610,8 @@ function doEdit(){
         var row = $('#tt').datagrid('getSelected');
         if (row){
 			var w=$('#win').window({
-					width:480,
-					height:390,
+					width:420,
+					height:280,
 					top:($(window).height() - 350) * 0.5,   
 						left:($(window).width() - 680) * 0.5,
 					modal:true
@@ -714,14 +714,14 @@ function doDel(){
 
     <table class="easyui-datagrid" style="width:600px;height:250px"
            url="/adm/mch/deptlistjson"
-           title="部门管理" toolbar="#tb" id="tt"
+           title="级别管理" toolbar="#tb" id="tt"
            singleselect="true" fitcolumns="true" fit="true"
            data-options="fitColumns:true,pageList:[20,50,100],pageSize:20,pagination:true"
            >
         <thead>
             <tr>
 				<th field="id" width="20">ID</th>
-				<th field="pid" width="50" formatter="rowformater_pid">上级ID</th>
+				<th field="pid" width="50" formatter="rowformater_pid">上级</th>
                 <th field="dept_name" width="70">部门</th>
 				<th field="state" width="50" formatter="rowformater_state">状态</th>
 				<th field=" " width="50">操作</th>

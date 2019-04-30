@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"html/template"
 	"strconv"
+	"time"
 
 	//"strconv"
 	"fmt"
@@ -173,7 +174,7 @@ func (c *UserController) HeadImg() {
 
 //List 列表页面
 func (c *UserController) List() {
-	//c.TplName="adm/user/list.html"
+	c.Data["_username"] = c.GetSession("_username").(string)
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_user_list)
@@ -185,6 +186,7 @@ func (c *UserController) List() {
 		c.Ctx.WriteString("页面模板错误!")
 		return
 	}
+
 	var rst = buf.String()
 
 	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
@@ -206,6 +208,25 @@ func (c *UserController) ListJson() {
 		where += " where `username` like '%" + qtxt + "%'"
 	}
 
+	//根据自己的权限进行过滤
+	if c.GetSession("_username").(string) != "root" {
+		var pid = c.GetSession("_uid").(string)
+		var w = ChildIds(pid)
+		w = strings.Replace(w, ",,", ",", -1)
+		w = strings.Replace(w, ",,", ",", -1)
+		if where != "" {
+			where += " and id in(" + w + ")"
+		} else {
+			where = "where id in(" + w + ") "
+		}
+	}
+	//排序
+	var sort = c.GetString("sort")
+	var order = c.GetString("order")
+	if sort != "" && order != "" {
+		where += " order by " + sort + " " + order
+	}
+	fmt.Println("where:", where)
 	var rst = db.Pager(page, pageSize, "select * from adm_user "+where)
 	//fmt.Println(rst)
 
@@ -215,6 +236,19 @@ func (c *UserController) ListJson() {
 
 //Edit 用户编辑页面
 func (c *UserController) Edit() {
+	c.Data["_username"] = c.GetSession("_username").(string) //输出账号到模板
+	var usertype = c.GetSession("_usertype").(string)        //账号类型
+	c.Data["_usertype"] = usertype
+	var is_sq = `0` //是否可以修改pid 和pids  //直接设置style 进行隐藏和显示
+	if usertype == "0" ||
+		usertype == "1" ||
+		usertype == "2" ||
+		usertype == "3" ||
+		usertype == "4" {
+		is_sq = "1"
+	}
+	c.Data["is_sq"] = is_sq
+
 	var id, _ = c.GetInt("id", 0)
 	var m = db.First("select * from adm_user where id=?", id)
 	c.Data["m"] = m
@@ -224,6 +258,9 @@ func (c *UserController) Edit() {
 	//角色列表
 	var roles = db.Query("select * from adm_role")
 	c.Data["roles"] = roles
+	//账号类型列表
+	var utypelist = db.Query("select * from adm_usertype")
+	c.Data["utypelist"] = utypelist
 	//根据信息选择已有权限
 	var jstr = ""
 	if m != nil {
@@ -237,6 +274,7 @@ func (c *UserController) Edit() {
 	//c.TplName="adm/user/edit.html"
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("adm_user_edit")
+	tpl.Funcs(template.FuncMap{"str2html": beego.Str2html})
 	tpl.Parse(adm_user_edit)
 	//fmt.Println(adm_user_edit)
 	var buf bytes.Buffer
@@ -255,6 +293,19 @@ func (c *UserController) Edit() {
 
 	c.Ctx.WriteString(rst)
 }
+func (c *UserController) JsonUType() {
+	var list = db.Query("select * from adm_usertype where state=1 order by orders ")
+	var jsonstr = `var jsonutype={ `
+	for kk, vv := range list {
+		if kk > 0 {
+			jsonstr += ","
+		}
+		jsonstr += `"key` + vv["id"] + `":"` + vv["name"] + `"`
+	}
+	jsonstr += `};`
+	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	c.Ctx.Output.Body([]byte(jsonstr))
+}
 
 //用户信息编辑
 func (c *UserController) EditPost() {
@@ -267,7 +318,31 @@ func (c *UserController) EditPost() {
 	var password = c.GetString("password")
 	var defpage = c.GetString("defpage")
 	var state = c.GetString("state")
-	var mch_id = c.GetString("mch_id")
+	var pid, _ = c.GetInt("pid", 0)
+	var pids = strings.Join(c.GetStrings("pids"), ",")
+
+	var is_sq = "1"
+	if pid == 0 && pids == "" {
+		is_sq = "0"
+	}
+
+	//默认是自己的企业ID,如果当前账号是root则可以修改
+	var mch_id = c.GetSession("_mch_id").(string)
+	if c.GetSession("_username").(string) == "root" {
+		mch_id = c.GetString("mch_id")
+	}
+
+	if pid == 0 {
+		pid, _ = strconv.Atoi(c.GetSession("_uid").(string))
+	}
+	if pids == "" {
+		pids = strconv.Itoa(pid)
+	}
+
+	if username == "root" {
+		pid = 0
+		pids = "0"
+	}
 
 	var role = c.GetStrings("role")
 	var roles = ""
@@ -289,7 +364,12 @@ func (c *UserController) EditPost() {
 			c.Ctx.WriteString("参数错误！")
 			return
 		}
-		var sql = `
+
+		var sql = ""
+		var i int64 = 0
+
+		if is_sq == "0" { //不需要修改pid pids
+			sql = `
 		update adm_user set 
 		username=?,
 		realname=?,
@@ -304,20 +384,56 @@ func (c *UserController) EditPost() {
 		memo=?
 		where id=?
 		`
-		var i = db.Exec(sql,
-			username,
-			realname,
-			mobile,
-			usertype,
-			level,
-			password,
-			state,
-			roles,
-			defpage,
-			mch_id,
-			memo,
-			id,
-		)
+			i = db.Exec(sql,
+				username,
+				realname,
+				mobile,
+				usertype,
+				level,
+				password,
+				state,
+				roles,
+				defpage,
+				mch_id,
+				memo,
+				id,
+			)
+		} else {
+			sql = `
+		update adm_user set 
+		pid=?,
+		pids=?,
+		username=?,
+		realname=?,
+		mobile=?,
+		usertype=?,
+		level=?,
+		password=?,
+		state=?,
+		roles=?,
+		defpage=?,
+		mch_id=?,
+		memo=?
+		where id=?
+		`
+			i = db.Exec(sql,
+				pid,
+				pids,
+				username,
+				realname,
+				mobile,
+				usertype,
+				level,
+				password,
+				state,
+				roles,
+				defpage,
+				mch_id,
+				memo,
+				id,
+			)
+		}
+
 		if i > 0 {
 			c.Ctx.WriteString("1")
 			return
@@ -327,6 +443,8 @@ func (c *UserController) EditPost() {
 		}
 	} else {
 		var sql = `insert into adm_user(
+			pid,
+			pids,
 			username,
 			realname,
 			mobile,
@@ -337,10 +455,14 @@ func (c *UserController) EditPost() {
 			roles,
 			defpage,
 			mch_id,
+			headimg,
+			regtime,
 			memo
-		)values(?,?,?,?,?,?,?,?,?,?,?)
+		)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		`
 		var i = db.Exec(sql,
+			pid,
+			pids,
 			username,
 			realname,
 			mobile,
@@ -351,6 +473,8 @@ func (c *UserController) EditPost() {
 			roles,
 			defpage,
 			mch_id,
+			"/images/headimg/2.jpg",
+			time.Now().Format("2006-01-02 15:04:05"),
 			memo,
 		)
 		if i > 0 {
@@ -571,6 +695,184 @@ func (c *UserController) DelRole() {
 		c.Ctx.WriteString("0")
 		return
 	}
+}
+func ChildIds(pid string) string {
+	//根据like语法读取
+	var sql = "select GROUP_CONCAT(id) as ids from adm_user where pids ='" + pid + "' or pids like '%," + pid + "' or pids like '" + pid + ",%' or pids like '%," + pid + ",%' "
+	fmt.Println("pids sql:", sql)
+	var p = db.First(sql)
+	if len(p) < 1 {
+		return "0"
+	}
+	var pids = p["ids"]
+	// if rst == "" {
+	// 	return "0"
+	// }
+	// return rst
+
+	//读取根节点
+	var list = db.Query("select * from adm_user where pid =" + pid + "")
+	//第一层节点
+	var rst = ""
+	for k, v := range list {
+		if k > 0 {
+			rst += ","
+		}
+		rst += v["id"]
+		//第二层节点
+		var list1 = db.Query("select * from adm_user where pid=?", v["id"])
+		rst1 := ""
+		for kk, vv := range list1 {
+			if kk > 0 {
+				rst1 += ","
+			}
+			rst1 += vv["id"]
+			//第三层节点
+			var list2 = db.Query("select * from adm_user where pid=?", vv["id"])
+			rst2 := ""
+			for kkk, vvv := range list2 {
+				if kkk > 0 {
+					rst2 += ","
+				}
+				rst2 += vvv["id"]
+
+				//第四层
+				var list3 = db.Query("select * from adm_user where pid=?", vvv["id"])
+				rst3 := ""
+				for kkkk, vvvv := range list3 {
+					if kkkk > 0 {
+						rst3 += ","
+					}
+					rst3 += vvvv["id"]
+
+					//第五层
+					var list4 = db.Query("select * from adm_user where pid=?", vvvv["id"])
+					rst4 := ""
+					for kkkkk, vvvvv := range list4 {
+						if kkkkk > 0 {
+							rst4 += ","
+						}
+						rst4 += vvvvv["id"]
+					}
+					if rst4 != "" {
+						rst3 += `,` + rst4
+					}
+
+				}
+				if rst3 != "" {
+					rst2 += `,` + rst3
+				}
+
+			}
+			if rst2 != "" {
+				rst1 += `,` + rst2
+			}
+
+		}
+		if rst1 != "" {
+			rst += `,` + rst1
+		}
+
+	}
+	if rst == "" {
+		rst = pids
+	} else {
+		rst += "," + pids
+	}
+	return rst
+}
+
+//UserTreeJson 用户JSON字符串 ids为需要选中的节点
+func (c *UserController) UserTreeJson() {
+	// var ids = c.GetString("ids")
+	// if ids == "" {
+	// 	ids = c.GetSession("_uid").(string)
+	// }
+	// var idarray = strings.Split(ids, ",")
+	// var mapid = make(map[string]string)
+	// for _, v := range idarray {
+	// 	mapid[v] = v
+	// }
+	var id, _ = c.GetInt("id", 0)
+
+	var pid = c.GetSession("_uid").(string)
+	if pid == "" {
+		pid = "1"
+	}
+	//读取根节点
+	var list = db.Query("select * from adm_user where id=?", pid)
+	//fmt.Println("test ids:", ChildIds(pid))
+	//第一层节点
+	var rst = "["
+	for k, v := range list {
+		if k > 0 {
+			rst += ","
+		}
+		rst += "{"
+		rst += `"id":` + v["id"] + ","
+		rst += `"text":"` + v["realname"] + "-" + v["id"] + `"`
+		//第二层节点
+		var list1 = db.Query("select * from adm_user where pid=? and id!=?", v["id"], id)
+		rst1 := "["
+		for kk, vv := range list1 {
+			if kk > 0 {
+				rst1 += ","
+			}
+			rst1 += "{"
+			rst1 += `"id":` + vv["id"] + ","
+			rst1 += `"text":"` + vv["realname"] + "-" + vv["id"] + `"`
+			//第三层节点
+			var list2 = db.Query("select * from adm_user where pid=? and id!=? ", vv["id"], id)
+			rst2 := "["
+			for kkk, vvv := range list2 {
+				if kkk > 0 {
+					rst2 += ","
+				}
+				rst2 += "{"
+				rst2 += `"id":` + vvv["id"] + ","
+				rst2 += `"text":"` + vvv["realname"] + "-" + vvv["id"] + `"`
+
+				//第四层
+				var list3 = db.Query("select * from adm_user where pid=? and id!=?", vvv["id"], id)
+				rst3 := "["
+				for kkkk, vvvv := range list3 {
+					if kkkk > 0 {
+						rst3 += ","
+					}
+					rst3 += "{"
+					rst3 += `"id":` + vvvv["id"] + ","
+					rst3 += `"text":"` + vvvv["realname"] + "-" + vvvv["id"] + `"`
+
+					//第五层
+					var list4 = db.Query("select * from adm_user where pid=? and id!=?", vvvv["id"], id)
+					rst4 := "["
+					for kkkkk, vvvvv := range list4 {
+						if kkkkk > 0 {
+							rst4 += ","
+						}
+						rst4 += "{"
+						rst4 += `"id":` + vvvvv["id"] + ","
+						rst4 += `"text":"` + vvvvv["realname"] + "-" + vvvvv["id"] + `"`
+						rst4 += "}"
+					}
+					rst4 += "]"
+					rst3 += `,"children":` + rst4
+					rst3 += "}"
+				}
+				rst3 += "]"
+				rst2 += `,"children":` + rst3
+				rst2 += "}"
+			}
+			rst2 += "]"
+			rst1 += `,"children":` + rst2
+			rst1 += "}"
+		}
+		rst1 += "]"
+		rst += `,"children":` + rst1
+		rst += "}"
+	}
+	rst += "]"
+	c.Ctx.WriteString(rst)
 }
 
 //TreeJson 菜单JSON字符串 ids为需要选中的节点
@@ -816,7 +1118,7 @@ var adm_user_list = `
 	<!--<script type="text/javascript" src="/js/easyui/jquery.easyui.plus.js"></script>-->
 	<script type="text/javascript" src="/js/easyui/locale/easyui-lang-zh_CN.js"></script>
 	<script type="text/javascript" src="/js/layer/layer.js"></script>
-
+	<script type="text/javascript" src="/adm/user/jsonutype"></script>
     <style>
         body {
             background: #fff;
@@ -909,7 +1211,31 @@ function doDel(){
     }
 	function rowformater_detail(value, row, index) {
 		return "<span ></span>";
-    }
+	}
+	function rowformater_usertype(value, row, index) {
+			if(value == undefined){
+				return '';
+			}
+			if(value==''){
+				return '';
+			}
+			var v=value;
+			if(jsonutype['key'+value]!=undefined){
+			 value= jsonutype['key'+value];
+			}
+			return value;
+	}
+	function rowformater_state(value, row, index) {
+		if(value=="0"){
+			return "禁用";
+		}
+		if(value=="1"){
+			return "<font color='green'>启用</font>";
+		}
+		if(value=="2"){
+			return "<font color='red'>封停</font>";
+		}
+	}
     </script>
 </head>
 <body style="padding:2px;margin-bottom:2px;">
@@ -920,18 +1246,19 @@ function doDel(){
         <thead>
             <tr>
 				<th field="id" width="30" sortable="true">编号</th>
+				{{if eq ._username "root"}}
 				<th field="mch_id" width="30" sortable="true">企业</th>
+				{{end}}
                  <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>             
                 <th field="username" align="right" sortable="true" width="70">用户名</th>
-				<th field="realname" align="right" sortable="true" width="70">姓名</th>
-                <th field="usertype" sortable="true" width="35">类型</th>
-                <th field="level" width="50" sortable="true">级别</th>
-				<th field="roles" width="50">角色</th>
+				<th field="realname" align="right" sortable="true" width="90">姓名</th>
+                <th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
+                <th field="pid" align="center" width="50" sortable="true">上级</th>
 				<th field="loginip" width="80">登录IP</th>
                 <th field="logintime" width="100" data-options="formatter:rowformater_date">登录时间</th>
 				<th field="regtime" width="100" data-options="formatter:rowformater_date">注册时间</th>
 				<th field="memo" width="50">备注</th>
-				<th field="state" width="50" sortable="true">状态</th>
+				<th field="state" align="center" width="50" sortable="true" data-options="formatter:rowformater_state">状态</th>
 				<th field=" " width="50" data-options="formatter:rowformater_detail">操作</th>
             </tr>
         </thead>
@@ -948,7 +1275,9 @@ function doDel(){
 
 
 			<a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>&nbsp;
+			{{if eq ._username "root"}}
 			<a href="#" class="easyui-linkbutton" iconcls="icon-43" onclick="doMch();">企业</a>
+			{{end}}
         </div>
     </div>
 
@@ -1201,7 +1530,7 @@ var adm_user_roleedit = `
                 </tr>
 				<tr>
                     <td>权限:</td>
-                    <td><input   type="text" name="rights" style="width:180px;" id="rights" data-options="method:'get',label:'Select Node:',labelPosition:'top',multiple:true"></input>
+                    <td><input   type="text" name="rights" style="width:180px;" id="rights" data-options="method:'get',labelPosition:'top',multiple:true"></input>
 					<script type="text/javascript">
 						<!--
 						/*
@@ -1314,7 +1643,41 @@ var adm_user_edit = `
                 <tr>
                     <td>账号:</td>
                     <td><input class="easyui-textbox" type="text" name="username" style="width:160px;" value="{{.m.username}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
-                </tr>
+				</tr>
+				{{if eq .is_sq "1"}}
+				<tr>
+					<td>上级:</td>
+					<td><input class="easyui-combotree" name="pid" style="width:160px;" id="pid" data-options="method:'get',labelPosition:'top',multiple:false"></input>
+					<script type="text/javascript">
+							$('#pid').combotree({
+								url: '/adm/user/usertreejson?id={{.m.id}}',
+								onCheck:function (item) {
+									//alert(JSON.stringify(item));
+								},
+								onLoadSuccess: function () {
+									$('#pid').combotree('setValues',{{.m.pid}});
+								}
+							});
+						</script>
+					</td>
+				</tr>
+				<tr>
+					<td>所属:</td>
+					<td><input class="easyui-combotree" name="pids" style="width:160px;" id="pids" data-options="method:'get',labelPosition:'top',multiple:true,cascadeCheck:false"></input>
+					<script type="text/javascript">
+							$('#pids').combotree({
+								url: '/adm/user/usertreejson?id={{.m.id}}',
+								onCheck:function (item) {
+									//alert(JSON.stringify(item));
+								},
+								onLoadSuccess: function () {
+									$('#pids').combotree('setValues',eval('['+{{.m.pids}}+']'));
+								}
+							});
+						</script>
+					</td>
+				</tr>
+				{{end}}
                 <tr>
                     <td>姓名:</td>
                     <td><input class="easyui-textbox" type="text" name="realname" style="width:160px;" value="{{.m.realname}}" data-options="required:true"></input></td>
@@ -1322,7 +1685,8 @@ var adm_user_edit = `
 				<tr>
                     <td>电话:</td>
                     <td><input class="easyui-textbox" type="text" name="mobile" style="width:160px;" value="{{.m.mobile}}" ></input></td>
-                </tr>
+				</tr>
+				{{if eq ._username "root"}}
                 <tr>
                     <td>企业:</td>
                     <td>
@@ -1331,21 +1695,25 @@ var adm_user_edit = `
                             <option value="{{$v.id}}">{{$v.mch_name}}</option>
                             {{end}}
                         </select>
-                        <script type="text/javascript">
-							$('#mch').combobox({
+						<script type="text/javascript">
+						$(function(){
+							$('#mch_id').combobox({
                                 onLoadSuccess: function () {
-								    $('#mch').combobox('select','{{.m.mch_id}}');
+								    $('#mch_id').combobox('select','{{.m.mch_id}}');
 							    }
-                            });
+                            });							
+						})
 						</script>
                     </td>
-                </tr>
+				</tr>
+				{{end}}
                 <tr>
                     <td>类型:</td>
                     <td>
                         <select id="usertype" class="easyui-combobox" name="usertype" style="width:160px;" data-options="required:true" editable="false">
-                            <option value="0">管理账号</option>
-                            <option value="1">员工账号</option>
+						{{range $k,$v:=.utypelist}}
+						<option value="{{$v.id}}">{{$v.name}}</option>
+						{{end}}
                         </select>
                         <script type="text/javascript">
 							$('#usertype').combobox({
@@ -1359,8 +1727,8 @@ var adm_user_edit = `
 				<tr style="display:none;">
                     <td>级别:</td>
                     <td>
-                        <select id="level" class="easyui-combobox" name="level" style="width:160px;" data-options="required:true" editable="false">
-                            <option value="0">免费会员</option>
+                        <select id="level" class="easyui-combobox" name="level" style="width:160px;"  editable="false">
+                            <option select value="0">免费会员</option>
                             <option value="1">普通会员</option>
                             <option value="2">VIP会员</option>
                             <option value="3">超级VIP</option>
@@ -1744,4 +2112,397 @@ function doFieldDel(id){
 
 </body>
 </html>
+`
+
+//账号类型列表页面
+func (c *UserController) UserTypeList() {
+	//开始渲染页面---------------------------------------------------------------------------
+	var tpl = template.New("")
+	tpl.Parse(adm_user_usertypelist)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+
+	if e != nil {
+		fmt.Println("tpl.Execute 错误:", e.Error())
+		c.Ctx.WriteString("页面模板错误!")
+		return
+	}
+	var rst = buf.String()
+
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+}
+func (c *UserController) UserTypeListJson() {
+	var page, _ = c.GetInt("page", 1)
+	var pageSize, _ = c.GetInt("rows", 20)
+	var qtxt = c.GetString("qtxt")
+	var where = ""
+
+	qtxt = strings.TrimSpace(string(qtxt))
+	if qtxt != "" {
+		where += " and `name` like '%" + qtxt + "%'"
+	}
+
+	var rst = db.Pager(page, pageSize, "select * from adm_usertype where 1=1 "+where)
+
+	c.Data["json"] = rst
+	c.ServeJSON()
+}
+
+//账号类型编辑
+func (c *UserController) UserTypeEdit() {
+	var id, _ = c.GetInt("id", 0)
+	if id > 0 {
+		var m = db.First("select * from adm_usertype where  id=?", id)
+		c.Data["m"] = m
+	}
+
+	//开始渲染页面---------------------------------------------------------------------------
+	var tpl = template.New("")
+	tpl.Parse(adm_user_usertypeedit)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+
+	if e != nil {
+		fmt.Println("tpl.Execute 错误:", e.Error())
+		c.Ctx.WriteString("页面模板错误!")
+		return
+	}
+	var rst = buf.String()
+
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+}
+func (c *UserController) UserTypeEditPost() {
+	var id, _ = c.GetInt("id", 0)
+	var name = c.GetString("name")
+	var orders, _ = c.GetInt("orders", 0)
+	var state = c.GetString("state")
+	if state == "on" || state == "1" {
+		state = "1"
+	} else {
+		state = "0"
+	}
+
+	var sql = ""
+	if id > 0 {
+		sql = `
+		update adm_usertype set 
+		name=?,
+		orders=?,
+		state=?
+		where id=?
+		`
+		var i = db.Exec(sql,
+			name,
+			orders,
+			state,
+			id,
+		)
+		if i > 0 {
+			c.Ctx.WriteString("1")
+			return
+		} else {
+			c.Ctx.WriteString("0")
+			return
+		}
+	} else {
+		sql = `
+		insert into adm_usertype(
+			name,
+			orders,
+			state
+		)values(
+			?,?,?
+		)
+		`
+		var i = db.Exec(sql,
+			name,
+			orders,
+			state,
+		)
+		if i > 0 {
+			c.Ctx.WriteString("1")
+			return
+		} else {
+			c.Ctx.WriteString("0")
+			return
+		}
+	}
+}
+
+//账号类型删除
+func (c *UserController) UserTypeDel() {
+	var id, _ = c.GetInt("id", 0)
+	if id < 2 {
+		c.Ctx.WriteString("0")
+		return
+	}
+	var i = db.Exec("delete from adm_usertype where  id=?", id)
+	if i > 0 {
+		c.Ctx.WriteString("1")
+		return
+	} else {
+		c.Ctx.WriteString("0")
+		return
+	}
+}
+
+var adm_user_usertypelist = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link href="/css/default.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="/js/easyui/themes/metro/easyui.css">
+    <link rel="stylesheet" type="text/css" href="/js/easyui/themes/icon.css">
+	<link rel="stylesheet" type="text/css" href="/fonts/iconfont.css">
+	<link href="/css/www.css" rel="stylesheet" type="text/css" />
+	
+
+	<script type="text/javascript" src="/js/easyui/base_loading.js"></script>
+    <script type="text/javascript" src="/js/easyui/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.form.js"></script>
+    <script type="text/javascript" src="/js/easyui/jquery.easyui.min.js"></script>
+    <script type="text/javascript" src="/js/easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="/js/layer/layer.js"></script>
+
+    <style>
+        body {
+            background: #fff;
+        }
+    </style>
+    </style>
+    <script type="text/javascript">
+	var jq=jQuery;
+	if(jq==undefined){
+		jq=jQuery;
+	}
+function doSearch(){
+        $('#tt').datagrid('load',{
+			qtxt:$('#qtxt').val()
+        });
+    }
+function doEdit(){
+        var row = $('#tt').datagrid('getSelected');
+        if (row){
+			var w=$('#win').window({
+					width:420,
+					height:280,
+					top:($(window).height() - 350) * 0.5,   
+						left:($(window).width() - 680) * 0.5,
+					modal:true
+			});
+
+            w.window('open');
+            w.window('refresh', '/adm/user/usertypeedit?id='+row.id);
+			w.window("resize",{top:$(document).scrollTop() + ($(window).height()-250) * 0.5});//居中显示
+            $('#ff').form('load',row);
+        }else{
+            jq.messager.alert('警告','请选择一行数据','warning');
+        }
+
+}
+function doAdd() {
+    var row = $('#tt').datagrid('getSelected');
+    $('#win').window('open');
+    $('#win').window('refresh', '/adm/user/usertypeedit?id=');
+    $('#ff').form('load', row);
+}
+function doDel(){
+    var jq=jQuery;
+    var row = $('#tt').datagrid('getSelected');
+    if (row) {
+        jq.messager.confirm('警告', '确定要删除吗?', function (r) {
+            if (r) {
+                jq.post('/adm/user/usertypedel', { id: row.id }, function (result) {
+                    if (result=="1") {
+                        $('#tt').datagrid('reload');	// reload the user data
+                    } else {
+                        jq.messager.alert('警告','删除失败','warning');
+                    }
+                });
+            }
+        });
+    } else {
+        jq.messager.alert('警告','请选择一行数据','warning');
+    }
+
+}
+    $(function(){
+
+    })
+
+	Date.prototype.Format = function (fmt) { //author: meizz   
+            var o = {
+                "M+": this.getMonth() + 1,                 //月份   
+                "d+": this.getDate(),                    //日   
+                "h+": this.getHours(),                   //小时   
+                "m+": this.getMinutes(),                 //分   
+                "s+": this.getSeconds(),                 //秒   
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度   
+                "S": this.getMilliseconds()             //毫秒   
+            };
+            if (/(y+)/.test(fmt))
+                fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            for (var k in o)
+                if (new RegExp("(" + k + ")").test(fmt))
+                    fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            return fmt;
+    }
+	function rowformater_headimg(value, row, index) {
+		return "<span class=' "+value+"'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
+		//return "<img src='"+value+"' style='width:25px;height:25px;'>";
+    }
+	function rowformater_date(value, row, index) {
+       if (value == undefined) {
+        return "";
+		}
+		/*json格式时间转js时间格式*/
+		value = value.substr(1, value.length - 2);
+		var obj = eval('(' + "{Date: new " + value + "}" + ')');
+		var dateValue = obj["Date"];
+		if (dateValue.getFullYear() < 1900) {
+			return "";
+		}
+
+		return dateValue.Format("yyyy-MM-dd hh:mm:ss");
+	}
+	
+	function rowformater_state(value, row, index) {
+		if(value=="0"){
+			return "禁用";
+		}else if(value=="1"){
+			return "启用";
+		}else{
+			return value;
+		}
+	}
+	 
+    </script>
+</head>
+<body style="padding:2px;margin-bottom:2px;">
+
+    <table class="easyui-datagrid" style="width:600px;height:250px"
+           url="/adm/user/usertypelistjson"
+           title="账号类别管理" toolbar="#tb" id="tt"
+           singleselect="true" fitcolumns="true" fit="true"
+           data-options="fitColumns:true,pageList:[20,50,100],pageSize:20,pagination:true"
+           >
+        <thead>
+            <tr>
+				<th field="id" width="20">ID</th>
+				<th field="name" width="70">名称</th>
+				<th field="orders" width="50"  >排序</th>
+                
+				<th field="state" width="50" formatter="rowformater_state">状态</th>
+				<th field=" " width="50">操作</th>
+            </tr>
+        </thead>
+    </table>
+
+    <div id="tb" style="padding:5px;height:auto">
+        <div style="margin-bottom:5px">
+            <a href="#" class="easyui-linkbutton" iconcls="icon-56" plain="true" onclick="doAdd();">新建</a>
+			<a href="#" class="easyui-linkbutton" iconcls="icon-1" plain="true" onclick="doEdit();">编辑</a>
+            <a href="#" class="easyui-linkbutton" iconcls="icon-no" plain="true" onclick="doDel();">删除</a>
+        </div>
+        <div>
+            
+            查询参数: <input class="easyui-textbox" id="qtxt" style="width:80px">
+
+
+            <a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>
+        </div>
+    </div>
+
+    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:420px;height:420px;padding:5px;overflow-x: hidden;">
+        Some Content.
+    </div>
+
+</body>
+</html>
+`
+
+var adm_user_usertypeedit = `
+
+<script type="text/javascript">
+    var jq = jQuery;
+        $(function () {
+            if ('{{.m.state}}' == '1') {
+                $('#state').attr('checked', 'checked');
+            }
+            $('#images').val('$!m.images');
+        })
+        function submitForm(){
+            $('#form1').form('submit', {
+                success: function (data) {
+                    if (data != "0") {
+                        layer.msg('<font color="yellow">操作成功!</font>');
+                        $('#tt').datagrid('reload');
+                        $('#win').window('close');
+                    } else {
+                        layer.msg('<font color="green">操作失败!</font>');
+                    }
+                }
+            });
+        }
+        function clearForm(){
+            $('#win').window('close');
+        }
+        $('#image').combobox({
+            formatter: function (row) {
+
+                return '<span class="' + row.text + '">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="item-text">' + row.text + '</span>';
+            }
+        });
+</script>
+
+
+<div class="easyui-panel" title="" style="width:100%" fix="true" border="false">
+    <div style="padding:10px 60px 20px 60px">
+        <form id="form1" action="/adm/user/usertypeeditpost" method="post">
+			<table cellpadding="5">
+			<tr>
+                    <td>ID:</td>
+					<td>
+                        {{.m.id}}
+                    </td>
+                </tr>
+                <tr>
+                    <td>名称:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="name" value="{{.m.name}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
+                </tr>
+				<tr>
+                    <td>排序:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="orders" value="{{.m.orders}}"  ></input></td>
+                </tr>
+                <tr>
+                    <td>状态:</td>
+					<td>
+					<input type="hidden" id="id" name="id" value="{{.m.id}}" />
+                        <select id="state" class="easyui-combobox" name="state" editable="false" style="width:180px;" >
+                            <option value="0">禁用</option>
+							<option value="1">启用</option>  
+                        </select>
+						<script type="text/javascript">
+						 
+                            $('#state').combobox({
+                                onLoadSuccess: function (data) {
+                                    $('#state').combobox('setValue', "{{.m.state}}");
+                                }
+                            }); 
+						</script>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <div style="text-align:center;padding:5px">
+
+            <a href="javascript:void(0)" class="easyui-linkbutton" iconcls="icon-ok" id="btnsave" onclick="submitForm()">保 存&nbsp;</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <a href="javascript:void(0)" class="easyui-linkbutton" iconcls="icon-no" onclick="clearForm()">取 消&nbsp;</a>
+        </div>
+    </div>
+</div>
 `

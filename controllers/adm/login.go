@@ -71,6 +71,8 @@ func (c *LoginController) Post() {
 		if u["state"] == "1" {
 			c.SetSession("_uid", u["id"])
 			c.SetSession("_mch_id", u["mch_id"])
+			c.SetSession("_pid", u["pid"])
+			c.SetSession("_pids", u["pids"])
 			c.SetSession("_roles", u["roles"])
 			c.SetSession("_username", u["username"])
 			c.SetSession("_usertype", u["usertype"])
