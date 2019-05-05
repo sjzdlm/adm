@@ -279,6 +279,12 @@ func (c *ApiController) Get() {
 						}
 					}
 				}
+				//如果参数有 _result,则直接输出JSON
+				if v["param_name"] == "_result" {
+					c.Data["json"] = data[v["param_name"]]
+					c.ServeJSON()
+					return
+				}
 			}
 		}
 

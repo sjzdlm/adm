@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"image/jpeg"
+	"net/http"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -29,6 +30,29 @@ func init() {
 //小工具集合
 type ToolController struct {
 	beego.Controller
+}
+
+//请求URL数据
+func HttpGet(url string) (string, error) {
+
+	postReq, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		fmt.Println("请求失败", err)
+		return "", err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(postReq)
+	if err != nil {
+		fmt.Println("client请求失败", err)
+		return "", err
+	}
+
+	data, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	return string(data), err
 }
 
 ///Vue组件脚本

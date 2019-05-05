@@ -3,6 +3,8 @@ package adm
 import (
 	"bytes"
 	"html/template"
+	"io/ioutil"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -237,16 +239,31 @@ func (c *UserController) ListJson() {
 //Edit 用户编辑页面
 func (c *UserController) Edit() {
 	c.Data["_username"] = c.GetSession("_username").(string) //输出账号到模板
-	var usertype = c.GetSession("_usertype").(string)        //账号类型
-	c.Data["_usertype"] = usertype
+	// var usertype = c.GetSession("_usertype").(string)        //账号类型
+	// c.Data["_usertype"] = usertype
+	// var is_sq = `0` //是否可以修改pid 和pids  //直接设置style 进行隐藏和显示
+	// if usertype == "0" ||
+	// 	usertype == "1" ||
+	// 	usertype == "2" ||
+	// 	usertype == "3" ||
+	// 	usertype == "7" ||
+	// 	usertype == "4" {
+	// 	is_sq = "1"
+	// }
+
+	var _company_id = c.GetSession("_company_id").(string) //单位ID
+	c.Data["_company_id"] = _company_id
+
+	var _userlevel = c.GetSession("_userlevel").(string) //账号类型
+	c.Data["_userlevel"] = _userlevel
 	var is_sq = `0` //是否可以修改pid 和pids  //直接设置style 进行隐藏和显示
-	if usertype == "0" ||
-		usertype == "1" ||
-		usertype == "2" ||
-		usertype == "3" ||
-		usertype == "4" {
-		is_sq = "1"
-	}
+	// if _userlevel == "0" ||
+	// 	_userlevel == "1" ||
+	// 	_userlevel == "2" ||
+	// 	_userlevel == "3" ||
+	// 	_userlevel == "4" {
+	// 	is_sq = "1"
+	// }
 	c.Data["is_sq"] = is_sq
 
 	var id, _ = c.GetInt("id", 0)
@@ -256,10 +273,17 @@ func (c *UserController) Edit() {
 	var mchlist = db.Query("select * from adm_mch")
 	c.Data["mchlist"] = mchlist
 	//角色列表
-	var roles = db.Query("select * from adm_role")
+	var where = ""
+	if c.GetSession("_sproot").(string) != "1" {
+		var roles = c.GetSession("_roles").(string)
+		if roles != "" {
+			where = " where id in(" + roles + ") "
+		}
+	}
+	var roles = db.Query("select * from adm_role" + where)
 	c.Data["roles"] = roles
-	//账号类型列表
-	var utypelist = db.Query("select * from adm_usertype")
+	//账号类型列表 根据级别过滤
+	var utypelist = db.Query("select * from adm_usertype where level >=? order by orders", _userlevel)
 	c.Data["utypelist"] = utypelist
 	//根据信息选择已有权限
 	var jstr = ""
@@ -294,15 +318,39 @@ func (c *UserController) Edit() {
 	c.Ctx.WriteString(rst)
 }
 func (c *UserController) JsonUType() {
+	//账号类型
 	var list = db.Query("select * from adm_usertype where state=1 order by orders ")
 	var jsonstr = `var jsonutype={ `
 	for kk, vv := range list {
 		if kk > 0 {
 			jsonstr += ","
 		}
-		jsonstr += `"key` + vv["id"] + `":"` + vv["name"] + `"`
+		jsonstr += `"key` + vv["level"] + `":"` + vv["name"] + `"`
 	}
-	jsonstr += `};`
+	jsonstr += `};
+	`
+
+	//账号类型对应的单位
+	var rcount = 0
+	jsonstr += `var jsoncompany_id={ `
+	for _, row := range list {
+		var m = row
+		//单位绑定 绑定字段为 id val  从数据库中读取
+		if m["conn_str"] != "" && m["bindapi"] != "" {
+			var xdb = db.NewDb(m["conn_str"])
+			var list1 = db.Query2(xdb, m["bindapi"])
+			for _, vv := range list1 {
+				if rcount > 0 {
+					jsonstr += ","
+				}
+				jsonstr += `"key` + vv["id"] + `":"` + vv["val"] + `"`
+				rcount++
+			}
+		}
+	}
+	jsonstr += `};
+	`
+
 	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
 	c.Ctx.Output.Body([]byte(jsonstr))
 }
@@ -320,10 +368,33 @@ func (c *UserController) EditPost() {
 	var state = c.GetString("state")
 	var pid, _ = c.GetInt("pid", 0)
 	var pids = strings.Join(c.GetStrings("pids"), ",")
+	var company_id = c.GetString("company_id")
+	var company = c.GetString("company")
+	var is_manager = c.GetString("is_manager")
+	if is_manager == "on" || is_manager == "1" {
+		is_manager = "1"
+	} else {
+		is_manager = "0"
+	}
 
 	var is_sq = "1"
 	if pid == 0 && pids == "" {
 		is_sq = "0"
+	}
+
+	//超管权限
+	var sproot = c.GetString("sproot")
+	if sproot == "" {
+		sproot = "0"
+	} else {
+		//只有root可以启用关闭超管
+		if c.GetSession("_username").(string) == "root" {
+			if sproot == "on" {
+				sproot = "1"
+			} else {
+				sproot = "0"
+			}
+		}
 	}
 
 	//默认是自己的企业ID,如果当前账号是root则可以修改
@@ -371,6 +442,7 @@ func (c *UserController) EditPost() {
 		if is_sq == "0" { //不需要修改pid pids
 			sql = `
 		update adm_user set 
+		sproot=?,
 		username=?,
 		realname=?,
 		mobile=?,
@@ -381,10 +453,14 @@ func (c *UserController) EditPost() {
 		roles=?,
 		defpage=?,
 		mch_id=?,
+		company=?,
+		company_id=?,
+		is_manager=?,
 		memo=?
 		where id=?
 		`
 			i = db.Exec(sql,
+				sproot,
 				username,
 				realname,
 				mobile,
@@ -395,12 +471,16 @@ func (c *UserController) EditPost() {
 				roles,
 				defpage,
 				mch_id,
+				company,
+				company_id,
+				is_manager,
 				memo,
 				id,
 			)
 		} else {
 			sql = `
 		update adm_user set 
+		sproot=?,
 		pid=?,
 		pids=?,
 		username=?,
@@ -413,10 +493,14 @@ func (c *UserController) EditPost() {
 		roles=?,
 		defpage=?,
 		mch_id=?,
+		company=?,
+		company_id=?,
+		is_manager=?,
 		memo=?
 		where id=?
 		`
 			i = db.Exec(sql,
+				sproot,
 				pid,
 				pids,
 				username,
@@ -429,6 +513,9 @@ func (c *UserController) EditPost() {
 				roles,
 				defpage,
 				mch_id,
+				company,
+				company_id,
+				is_manager,
 				memo,
 				id,
 			)
@@ -443,6 +530,7 @@ func (c *UserController) EditPost() {
 		}
 	} else {
 		var sql = `insert into adm_user(
+			sproot,
 			pid,
 			pids,
 			username,
@@ -455,12 +543,16 @@ func (c *UserController) EditPost() {
 			roles,
 			defpage,
 			mch_id,
+			company,
+			company_id,
 			headimg,
 			regtime,
+			is_manager,
 			memo
-		)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		`
 		var i = db.Exec(sql,
+			sproot,
 			pid,
 			pids,
 			username,
@@ -473,8 +565,11 @@ func (c *UserController) EditPost() {
 			roles,
 			defpage,
 			mch_id,
+			company,
+			company_id,
 			"/images/headimg/2.jpg",
 			time.Now().Format("2006-01-02 15:04:05"),
+			is_manager,
 			memo,
 		)
 		if i > 0 {
@@ -894,7 +989,7 @@ func (c *UserController) TreeJson() {
 		}
 		rst += "{"
 		rst += `"id":` + v["id"] + ","
-		rst += `"text":"` + v["title"] + v["id"] + `"`
+		rst += `"text":"` + v["title"] + "-" + v["id"] + `"`
 		//第二层节点
 		var list1 = db.Query("select * from adm_menu where pid=?", v["id"])
 		rst1 := "["
@@ -904,7 +999,7 @@ func (c *UserController) TreeJson() {
 			}
 			rst1 += "{"
 			rst1 += `"id":` + vv["id"] + ","
-			rst1 += `"text":"` + vv["title"] + vv["id"] + `"`
+			rst1 += `"text":"` + vv["title"] + "-" + vv["id"] + `"`
 			//第三层节点
 			var list2 = db.Query("select * from adm_menu where pid=?", vv["id"])
 			rst2 := "["
@@ -918,7 +1013,65 @@ func (c *UserController) TreeJson() {
 				if _, ok := mapid[vvv["id"]]; ok {
 					rst2 += `"checked":true,`
 				}
-				rst2 += `"text":"` + vvv["title"] + vvv["id"] + `"`
+				rst2 += `"text":"` + vvv["title"] + "-" + vvv["id"] + `"`
+				rst2 += "}"
+			}
+			rst2 += "]"
+			rst1 += `,"children":` + rst2
+			rst1 += "}"
+		}
+		rst1 += "]"
+		rst += `,"children":` + rst1
+		rst += "}"
+	}
+	rst += "]"
+	c.Ctx.WriteString(rst)
+}
+
+//TreeJson 菜单JSON字符串 ids为需要选中的节点
+func (c *UserController) TreeJson2() {
+	var ids = c.GetString("ids")
+	var idarray = strings.Split(ids, ",")
+	var mapid = make(map[string]string)
+	for _, v := range idarray {
+		mapid[v] = v
+	}
+	//读取根节点
+	var list = db.Query("select * from adm_menu where pid=1")
+
+	//第一层节点
+	var rst = "["
+	for k, v := range list {
+		if k > 0 {
+			rst += ","
+		}
+		rst += "{"
+		rst += `"id":` + v["id"] + ","
+		rst += `"text":"` + v["label"] + "-" + v["id"] + `"`
+		//第二层节点
+		var list1 = db.Query("select * from adm_menu where pid=?", v["id"])
+		rst1 := "["
+		for kk, vv := range list1 {
+			if kk > 0 {
+				rst1 += ","
+			}
+			rst1 += "{"
+			rst1 += `"id":` + vv["id"] + ","
+			rst1 += `"text":"` + vv["label"] + "-" + vv["id"] + `"`
+			//第三层节点
+			var list2 = db.Query("select * from adm_menu where pid=?", vv["id"])
+			rst2 := "["
+			for kkk, vvv := range list2 {
+				if kkk > 0 {
+					rst2 += ","
+				}
+				rst2 += "{"
+				rst2 += `"id":` + vvv["id"] + ","
+				//校验是否需要选中
+				if _, ok := mapid[vvv["id"]]; ok {
+					rst2 += `"checked":true,`
+				}
+				rst2 += `"text":"` + vvv["label"] + "-" + vvv["id"] + `"`
 				rst2 += "}"
 			}
 			rst2 += "]"
@@ -1225,6 +1378,19 @@ function doDel(){
 			}
 			return value;
 	}
+	function rowformater_company_id(value, row, index) {
+			if(value == undefined){
+				return '';
+			}
+			if(value==''){
+				return '';
+			}
+			var v=value;
+			if(jsoncompany_id['key'+value]!=undefined){
+			 value= jsoncompany_id['key'+value];
+			}
+			return value;
+	}
 	function rowformater_state(value, row, index) {
 		if(value=="0"){
 			return "禁用";
@@ -1253,10 +1419,8 @@ function doDel(){
                 <th field="username" align="right" sortable="true" width="70">用户名</th>
 				<th field="realname" align="right" sortable="true" width="90">姓名</th>
                 <th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
-                <th field="pid" align="center" width="50" sortable="true">上级</th>
-				<th field="loginip" width="80">登录IP</th>
-                <th field="logintime" width="100" data-options="formatter:rowformater_date">登录时间</th>
-				<th field="regtime" width="100" data-options="formatter:rowformater_date">注册时间</th>
+                <th field="company_id" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_id">单位</th> 
+                <th field="logintime" width="100" data-options="formatter:rowformater_date">登录时间</th> 
 				<th field="memo" width="50">备注</th>
 				<th field="state" align="center" width="50" sortable="true" data-options="formatter:rowformater_state">状态</th>
 				<th field=" " width="50" data-options="formatter:rowformater_detail">操作</th>
@@ -1548,7 +1712,8 @@ var adm_user_roleedit = `
 							*/
 							
 							$('#rights').combotree({
-								url: '/adm/user/treejson?ids={{.m.rights}}',
+								panelWidth: 'auto',
+								url: '/adm/user/treejson2?ids={{.m.rights}}',
 								onCheck:function (item) {
 									//alert(JSON.stringify(item));
 								}
@@ -1687,8 +1852,8 @@ var adm_user_edit = `
                     <td><input class="easyui-textbox" type="text" name="mobile" style="width:160px;" value="{{.m.mobile}}" ></input></td>
 				</tr>
 				{{if eq ._username "root"}}
-                <tr>
-                    <td>企业:</td>
+                <tr style="display:none;">
+                    <td>商户:</td>
                     <td>
                         <select id="mch_id" class="easyui-combobox" name="mch_id" style="width:160px;" data-options="required:true" editable="false">
                             {{range $k,$v:=.mchlist}}
@@ -1711,18 +1876,80 @@ var adm_user_edit = `
                     <td>类型:</td>
                     <td>
                         <select id="usertype" class="easyui-combobox" name="usertype" style="width:160px;" data-options="required:true" editable="false">
+						<option value="">请选择...</option>
 						{{range $k,$v:=.utypelist}}
-						<option value="{{$v.id}}">{{$v.name}}</option>
+						<option value="{{$v.level}}">{{$v.name}}</option>
 						{{end}}
                         </select>
-                        <script type="text/javascript">
-							$('#usertype').combobox({
-                                onLoadSuccess: function () {
-								    $('#usertype').combobox('select','{{.m.usertype}}');
-							    }
-                            });
+						<script type="text/javascript">
+							$(function(){
+								$('#usertype').combobox({
+									onLoadSuccess: function () {
+										$('#usertype').combobox('select','{{.m.usertype}}');
+									},
+									onChange: function (n,o) {
+										$('#company_id').combobox({
+											url:'/adm/user/usertypecompany?cid={{._company_id}}&id='+$('#usertype').combobox('getValue'),
+											valueField:'id',
+											textField:'val',
+											onLoadSuccess: function () {
+												var v='{{.m.company_id}}';
+												var ds=$('#company_id').combobox('getData');
+												//console.log(ds);
+												//console.log('------------------------------');
+												for (var i = 0; i < ds.length; i++) {
+													//console.log(ds[i]["val"]);
+													if(ds[i]["id"]==v){
+														$('#company_id').combobox('select','{{.m.company_id}}');
+													}
+												}
+											}
+										});
+									}
+								});								
+							})
+
 						</script>
                     </td>
+				</tr>
+				<tr>
+                    <td>单位:</td>
+                    <td>
+                        <select id="company_id" class="easyui-combobox" data-options="valueField:'id', textField:'val'" name="company_id" style="width:160px;"  editable="false">
+						<option value="0">请选择...</option>
+                        </select>
+                        <script type="text/javascript">
+							$('#company_id').combobox({
+                                onLoadSuccess: function () {
+									$('#company_id').combobox('select','{{.m.company_id}}');
+								},
+								onChange: function (n,o) {
+									$('#company').val($('#company_id').combobox("getText"));
+								}
+                            });
+						</script>
+						<input type="hidden" id="company" name="company" vale="{{.m.company}}"/>
+                    </td>
+				</tr>
+				<tr>
+                    <td style="width:55px;">管理员:</td>
+                    <td>
+					
+					<input class="easyui-switchbutton" id="is_manager" title="" name="is_manager" style="vertical-align:middle;">
+					<script type="text/javascript">
+						$(function(){
+							if('{{.m.is_manager}}'=='1'){
+								$('#is_manager').switchbutton({
+									checked: true,
+								})
+							}else{
+								$('#is_manager').switchbutton({
+									checked: false,
+								})
+							}
+						})
+					</script>
+					</td>
                 </tr>
 				<tr style="display:none;">
                     <td>级别:</td>
@@ -1748,17 +1975,42 @@ var adm_user_edit = `
                 </tr>
 				<tr>
                     <td>角色:</td>
-                    <td> 
+					<td> 
+						<div style="max-width:260px;">
 						{{range $k,$r:=.roles}}
 							<input type="checkbox" name="role" id="role{{$r.id}}" value="{{$r.id}}"   /><label for="role{{$r.id}}">{{$r.name}}</label>
 							
 						{{end}}
-						 
+						</div> 
 						<script type="text/javascript">
 						{{.jstr}}
 						</script>
 					</td>
 				</tr>
+				{{if eq ._username "root"}}
+				<tr>
+                    <td style="width:55px;">超管:</td>
+                    <td>
+					
+					<input class="easyui-switchbutton" id="sproot" title="" name="sproot" style="vertical-align:middle;">
+					<script type="text/javascript">
+						$(function(){
+							if('{{.m.sproot}}'=='1'){
+								$('#sproot').switchbutton({
+									checked: true,
+								})
+							}else{
+								$('#sproot').switchbutton({
+									checked: false,
+								})
+							}
+						})
+					</script>
+					 
+					
+					</td>
+                </tr>
+				{{end}}
 				<tr>
                     <td>默认页:</td>
                     <td><input class="easyui-textbox" type="text" name="defpage" style="width:160px;" value="{{.m.defpage}}"></input></td>
@@ -1770,7 +2022,7 @@ var adm_user_edit = `
                         <input type="hidden" id="id" name="id" value="{{.m.id}}" />
                     </td>
                 </tr>
-
+				
                 <tr>
                     <td>状态:</td>
                     <td>
@@ -2149,6 +2401,96 @@ func (c *UserController) UserTypeListJson() {
 	c.ServeJSON()
 }
 
+//根据账号类型,显示账号类型的企业列表 支持跨库
+func (c *UserController) UserTypeCompany() {
+	//var rst = ""
+	//var cid, _ = c.GetInt("cid", 0)
+	var id, _ = c.GetInt("id", 0)
+	var m = db.First("select * from adm_usertype where level=?", id)
+	if len(m) < 1 {
+		// var rst = `var jsoncompay_id={ `
+		// rst += `"key0":"---"`
+		// rst += `};`
+
+		c.Data["json"] = `[]`
+		c.ServeJSON()
+		return
+	}
+
+	//单位绑定 绑定字段为 id val  从数据库中读取
+	if m["conn_str"] != "" && m["bindapi"] != "" {
+		var xdb = db.NewDb(m["conn_str"])
+		var list = db.Query2(xdb, m["bindapi"])
+		//fmt.Println("--------bindapi:", m["bindapi"])
+		c.Data["json"] = list
+		c.ServeJSON()
+	} else {
+		c.Data["json"] = `[]`
+		c.ServeJSON()
+	}
+
+	// //单位绑定 绑定字段为 id val  从数据库中读取
+	// var jsonstr = `var jsoncompay_id={ `
+	// if m["conn_str"] != "" && m["bindapi"] != "" {
+	// 	var xdb = db.NewDb(m["conn_str"])
+	// 	var list = db.Query2(xdb, m["bindapi"])
+	// 	for kk, vv := range list {
+	// 		if kk > 0 {
+	// 			jsonstr += ","
+	// 		}
+	// 		jsonstr += `"key` + vv["id"] + `":"` + vv["val"] + `"`
+	// 	}
+	// }
+	// jsonstr += `};`
+
+	// rst = jsonstr
+
+	//// if m["bindapi"] == "" {
+	//// 	rst = "{}"
+	//// 	c.Data["json"] = rst
+	//// 	c.ServeJSON()
+	//// 	return
+	//// }
+
+	//// var url = m["bindapi"]
+	//// if strings.Contains(url, "http") == false {
+	//// 	if strings.Contains(url, "?") {
+	//// 		url += "&cid=" + strconv.Itoa(cid)
+	//// 	} else {
+	//// 		url += "?cid=" + strconv.Itoa(cid)
+	//// 	}
+	//// 	url = "http://" + c.Ctx.Input.Domain() + ":" + strconv.Itoa(c.Ctx.Input.Port()) + url
+	//// }
+	//// fmt.Println("接口url:", url)
+	//// rst, _ = httpGet(url)
+	//// if rst == "" {
+	//// 	rst = "{}"
+	//// }
+
+	//c.Ctx.Output.Header("Content-Type", "text/json; charset=utf-8")
+	//c.Ctx.Output.Body([]byte(rst))
+}
+func httpGet(url string) (string, error) {
+	postReq, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		fmt.Println("请求失败", err)
+		return "", err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(postReq)
+	if err != nil {
+		fmt.Println("client请求失败", err)
+		return "", err
+	}
+
+	data, _ := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	return string(data), err
+}
+
 //账号类型编辑
 func (c *UserController) UserTypeEdit() {
 	var id, _ = c.GetInt("id", 0)
@@ -2156,7 +2498,12 @@ func (c *UserController) UserTypeEdit() {
 		var m = db.First("select * from adm_usertype where  id=?", id)
 		c.Data["m"] = m
 	}
-
+	//数据库链接
+	var dblist = db.Query("select * from adm_conn where state=1")
+	if dblist != nil {
+		c.Data["dblist"] = dblist
+	}
+	c.Data["sproot"] = c.GetSession("_sproot").(string)
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_user_usertypeedit)
@@ -2178,6 +2525,8 @@ func (c *UserController) UserTypeEditPost() {
 	var name = c.GetString("name")
 	var orders, _ = c.GetInt("orders", 0)
 	var state = c.GetString("state")
+	var conn_str = c.GetString("conn_str")
+	var bindapi = c.GetString("bindapi")
 	if state == "on" || state == "1" {
 		state = "1"
 	} else {
@@ -2186,16 +2535,28 @@ func (c *UserController) UserTypeEditPost() {
 
 	var sql = ""
 	if id > 0 {
+		var m = db.First("select * from adm_usertype where id=?", id)
+		if len(m) < 1 {
+			c.Ctx.WriteString("0")
+			return
+		}
+		if c.GetSession("_sproot").(string) != "1" { //只有超管才能修改绑定接口
+			bindapi = m["bindapi"]
+		}
 		sql = `
 		update adm_usertype set 
 		name=?,
 		orders=?,
+		conn_str=?,
+		bindapi=?,
 		state=?
 		where id=?
 		`
 		var i = db.Exec(sql,
 			name,
 			orders,
+			conn_str,
+			bindapi,
 			state,
 			id,
 		)
@@ -2211,14 +2572,18 @@ func (c *UserController) UserTypeEditPost() {
 		insert into adm_usertype(
 			name,
 			orders,
+			conn_str,
+			bindapi,
 			state
 		)values(
-			?,?,?
+			?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
 			name,
 			orders,
+			conn_str,
+			bindapi,
 			state,
 		)
 		if i > 0 {
@@ -2288,8 +2653,8 @@ function doEdit(){
         var row = $('#tt').datagrid('getSelected');
         if (row){
 			var w=$('#win').window({
-					width:420,
-					height:280,
+					width:480,
+					height:380,
 					top:($(window).height() - 350) * 0.5,   
 						left:($(window).width() - 680) * 0.5,
 					modal:true
@@ -2305,9 +2670,16 @@ function doEdit(){
 
 }
 function doAdd() {
-    var row = $('#tt').datagrid('getSelected');
-    $('#win').window('open');
-    $('#win').window('refresh', '/adm/user/usertypeedit?id=');
+	var row = $('#tt').datagrid('getSelected');
+	var w=$('#win').window({
+		width:480,
+		height:380,
+		top:($(window).height() - 350) * 0.5,   
+			left:($(window).width() - 680) * 0.5,
+		modal:true
+	});
+    w.window('open');
+    w.window('refresh', '/adm/user/usertypeedit?id=');
     $('#ff').form('load', row);
 }
 function doDel(){
@@ -2477,7 +2849,36 @@ var adm_user_usertypeedit = `
 				<tr>
                     <td>排序:</td>
                     <td><input class="easyui-textbox" type="text" style="width:180px;" name="orders" value="{{.m.orders}}"  ></input></td>
-                </tr>
+				</tr>
+				{{if eq .sproot "1"}}
+				<tr id="trdb">
+                    <td>绑定库:</td>
+                    <td>
+                        <select id="conn_str" name="conn_str" style="width:180px;" class="easyui-combobox" editable="false">
+							<option  value="">请选择数据库...</option>
+							{{range $k,$v :=.dblist}}
+                            <option  value="{{$v.conn}}">{{$v.title}}</option>
+                            {{end}}
+                        </select>
+                        <script language="javascript">
+                            $(function(){
+                                $('#conn_str').combobox({
+									onLoadSuccess: function () {
+										$('#conn_str').combobox('select','{{.m.conn_str}}');
+									}
+								});	
+                            });
+                            
+                        </script>
+                    </td>
+				</tr>
+				<tr>
+                    <td>绑定数据:</td>
+					<td><input class="easyui-textbox" type="text" style="width:180px;" name="bindapi" value="{{.m.bindapi}}"></input>
+					</br>使用id,val两个字段,只支持sql语句
+					</td>
+				</tr>
+				{{end}}
                 <tr>
                     <td>状态:</td>
 					<td>

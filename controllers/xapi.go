@@ -480,3 +480,69 @@ func (c *XApiController) UpBase64() {
 	}
 	c.Ctx.WriteString(fn)
 }
+
+//返回街道json;code 为区县代码
+func (c *XApiController) StreetJson() {
+	var code = c.GetString("code")
+
+	var sql = `select * from tb_region where substr(code,1,6)=? and length(code) =9 and pid!=0 order by code `
+	var list = db.Query(sql, code)
+	c.Data["json"] = list
+	c.ServeJSON()
+}
+
+//返回区县json;code 为城市代码
+func (c *XApiController) CountyJson() {
+	var code = c.GetString("code")
+
+	var sql = `select * from tb_region where substr(code,1,4)||'00'=?  and substr(code,5,6)!='00' and length(code) =6 and pid!=0 order by code `
+	var list = db.Query(sql, code)
+	c.Data["json"] = list
+	c.ServeJSON()
+}
+
+//返回城市json;
+func (c *XApiController) CityJson() {
+	var code = c.GetString("code")
+
+	var sql = `select * from tb_region where substr(code,1,2)||'0000'=?  and substr(code,5,6)='00' and length(code) =6 and pid!=0 order by code
+	`
+	var list = db.Query(sql, code)
+	c.Data["json"] = list
+	c.ServeJSON()
+}
+
+//返回省份json;
+func (c *XApiController) ProvJson() {
+	var sql = `select * from tb_region where substr(code,3,6)='0000' order by code 
+	`
+	var list = db.Query(sql)
+	c.Data["json"] = list
+	c.ServeJSON()
+}
+
+//返回街道用户类型JSON
+func (c *XApiController) UserTypeJson() {
+	var sql = `select mch_id,level as id, name as val from adm_usertype where level>0 and state=1 `
+	var list = db.Query(sql)
+	c.Data["json"] = list
+	c.ServeJSON()
+}
+
+//用户类型JS对象,主要用于下拉框的列表绑定显示
+func (c *XApiController) JsonUserType() {
+	//账号类型
+	var list = db.Query("select * from adm_usertype where state=1 order by orders ")
+	var jsonstr = `var jsonutype={ `
+	for kk, vv := range list {
+		if kk > 0 {
+			jsonstr += ","
+		}
+		jsonstr += `"key` + vv["level"] + `":"` + vv["name"] + `"`
+	}
+	jsonstr += `};
+	`
+
+	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	c.Ctx.Output.Body([]byte(jsonstr))
+}

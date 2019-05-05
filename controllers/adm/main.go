@@ -22,9 +22,11 @@ func (c *MainController) Get() {
 	//1.检查是否登录
 	var _uid = c.Ctx.Input.Session("_uid")
 	var _uname = c.Ctx.Input.Session("_username")
+	var _sproot = c.Ctx.Input.Session("_sproot")
 	var _mch_id = c.Ctx.Input.Session("_mch_id")
 	var _logintime = c.Ctx.Input.Session("_logintime")
 	var _loginip = c.Ctx.Input.Session("_loginip")
+	var _userlevel = c.Ctx.Input.Session("_userlevel")
 
 	if (_uid == nil || _uid == "") && c.Ctx.Request.RequestURI != "/adm/login" {
 		c.Ctx.Redirect(302, "/adm/login")
@@ -60,6 +62,8 @@ func (c *MainController) Get() {
 		rs += v["rights"]
 	}
 	//6.获取顶部菜单
+	//调用之前先把nid和id同步一下
+	db.Exec("update adm_menu set nid=id where nid is null ")
 	var topmenu = db.Query("select * from adm_menu where pid=1 and nid in (" + rs + ") order by orders ")
 	c.Data["_topmenu"] = topmenu
 
@@ -71,7 +75,7 @@ func (c *MainController) Get() {
 		_un = ""
 	}
 	for _, v := range topmenu {
-		var jsonstr = menuJson(v["nid"], m["roles"], v["title"], _un)
+		var jsonstr = menuJson(v["nid"], m["roles"], v["title"], _un, _sproot.(string))
 		_datajson += "_datajson" + v["nid"] + "=" + jsonstr + ";"
 	}
 	c.Data["_datajson"] = template.JS(_datajson)
@@ -88,7 +92,10 @@ func (c *MainController) Get() {
 	var sys_logo = ""
 	var sys = db.First("select * from adm_system where user_id=? limit 1", _uid)
 	if len(sys) < 1 {
-		sys = db.First("select * from adm_system where mch_id=? limit 1", _mch_id)
+		sys = db.First("select * from adm_system where mch_id=? and user_level=? and user_id=0 limit 1", _mch_id, _userlevel)
+	}
+	if len(sys) < 1 {
+		sys = db.First("select * from adm_system where mch_id=? and user_level=0 limit 1", _mch_id)
 	}
 	if len(sys) < 1 {
 		sys = db.First("select * from adm_system limit 1")
@@ -108,8 +115,21 @@ func (c *MainController) Get() {
 	}
 	c.Data["skin"] = sys["skin"] //皮肤
 
+	var syscolor = sys["sys_name_color"]
+	if syscolor == "" {
+		syscolor = "#ffffff"
+	}
+	c.Data["syscolor"] = syscolor
+	var sys_sup = sys["sys_sup"]
+	c.Data["sys_sup"] = sys_sup
+	var syssupcolor = sys["sys_sup_color"]
+	if syssupcolor == "" {
+		syssupcolor = "#ffffff"
+	}
+	c.Data["syssupcolor"] = syssupcolor
+
 	//如果用户是root,双击头像跳转新连接,可以进行高级管理
-	if _uname == "root" {
+	if _uname == "root" || _sproot.(string) == "1" {
 		var _js = `
         $("#headimg").dblclick(function(){
             window.location='/adm/main?su=1';
@@ -144,7 +164,7 @@ func (c *MainController) Get() {
 }
 
 //根据菜单ID获取菜单JSON字符串,只有 _uname为 root时才有数据管理功能
-func menuJson(nid string, roles string, title string, _uname string) string {
+func menuJson(nid string, roles string, title string, _uname string, _sproot string) string {
 	//db.Exec("SET SSESION group_concat_max_len=102400;")//mysql才有此命令
 	var rs = db.FirstOrNil("select GROUP_CONCAT(A.rights) as r from adm_role A   where id in(" + roles + ")")
 	var rights = "0"
@@ -197,7 +217,7 @@ func menuJson(nid string, roles string, title string, _uname string) string {
 		}
 		rst += "}"
 	}
-	if title == "系统" && _uname == "root" {
+	if title == "系统" && (_uname == "root" || _sproot == "1") {
 		rst += `
 		,{
 			"id": "900",
@@ -505,7 +525,8 @@ var adm_main_get = `
             </span>
             <!-- logo for regular state and mobile devices -->
             <span class="logo-lg">
-                <img alt="" src="{{.sys_logo}}" width="30px" height="30px" style="margin-left:-15px;margin-bottom: 3px;margin-right:2px;">{{.sysname}}
+                <img alt="" src="{{.sys_logo}}" width="30px" height="30px" style="margin-left:-15px;margin-bottom: 3px;margin-right:2px;color:{{.syscolor}}">
+                {{.sysname}}<sup style="margin-left:2px;font-size:9px;color:{{.syssupcolor}}">{{.sys_sup}}</sup>
             </span>
         </a>
         <!-- Header Navbar: style can be found in header.less -->

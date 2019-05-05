@@ -21,10 +21,10 @@ func (c *MenuController) List() {
 	var toplist = db.Query("select * from  adm_menu where state=1 and pid=1")
 	var qmenu = ""
 	for _, v := range toplist {
-		qmenu += "<option value='" + v["id"] + "'>" + v["title"] + "</option>"
+		qmenu += "<option value='" + v["id"] + "'  title='" + v["label"] + "'>" + v["title"] + "-" + v["id"] + "</option>"
 		var sublist = db.Query("select * from adm_menu where state=1 and pid=?", v["id"])
 		for _, vv := range sublist {
-			qmenu += "<option value='" + vv["id"] + "'> --" + vv["title"] + "</option>"
+			qmenu += "<option value='" + vv["id"] + "'   &nbsp;title='" + vv["label"] + "'> --" + vv["title"] + vv["id"] + "</option>"
 		}
 	}
 	fmt.Println("qmenu", qmenu)
@@ -68,8 +68,13 @@ func (c *MenuController) ListJson() {
 	if qtxt != "" {
 		where += " and title like '%" + qtxt + "%'"
 	}
-
-	var rst = db.Pager(page, pageSize, "select * from adm_menu  "+where+" order by orders")
+	//排序
+	var sort = c.GetString("sort")
+	var order = c.GetString("order")
+	if sort != "" && order != "" {
+		where += " order by " + sort + " " + order
+	}
+	var rst = db.Pager(page, pageSize, "select  *  from adm_menu   "+where)
 
 	c.Data["json"] = rst
 	c.ServeJSON()
@@ -138,6 +143,7 @@ func (c *MenuController) EditPost() {
 	var icon = c.GetString("icon")
 	var url = c.GetString("url")
 	var memo = c.GetString("memo")
+	var label = c.GetString("label")
 	var state = c.GetString("state")
 	if state == "on" {
 		state = "1"
@@ -159,6 +165,7 @@ func (c *MenuController) EditPost() {
 		image=?,
 		icon=?,
 		url=?,
+		label=?,
 		memo=?,
 		state=?
 		where id=?
@@ -171,6 +178,7 @@ func (c *MenuController) EditPost() {
 			image,
 			icon,
 			url,
+			label,
 			memo,
 			state,
 			id,
@@ -191,10 +199,11 @@ func (c *MenuController) EditPost() {
 			image,
 			icon,
 			url,
+			label,
 			memo,
 			state
 		)values(
-			?,?,?,?,?,?,?,?
+			?,?,?,?,?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
@@ -204,6 +213,7 @@ func (c *MenuController) EditPost() {
 			image,
 			icon,
 			url,
+			label,
 			memo,
 			state,
 		)
@@ -353,11 +363,14 @@ function doRemove(){
            data-options="fitColumns:true,pageList:[20,50,100],pageSize:20,pagination:true" >
         <thead>
             <tr>
-                <th field="id" width="60">ID</th>
-                <th field="title" width="80">名称</th>
-                <th field="orders" align="right" width="70">排序</th>
-                <th field="image" align="center" width="50" data-options="formatter:rowformater_image">图标</th>
-                <th field="url" width="200">URL地址</th>
+				<th field="id" align="center" sortable="true" width="60">ID</th>
+				<th field="label" align="left" sortable="true" width="80">菜单</th>
+				<th field="title" align="left" sortable="true" width="80">名称</th>
+				<th field="pid" align="center" sortable="true" width="80">上级</th>
+				<th field="ptitle" align="center" sortable="true" width="80">上级菜单</th>
+                <th field="orders" align="center" sortable="true" align="right" width="70">排序</th>
+                <th field="image" sortable="true" align="center" width="50" data-options="formatter:rowformater_image">图标</th>
+                <th field="url" sortable="true" width="200">URL地址</th>
                 <th field="memo" width="50">备注</th>
             </tr>
         </thead>
@@ -371,7 +384,7 @@ function doRemove(){
         </div>
         <div>
             一级菜单: 
-						<select  id="pid" name="pid" style="width:100px;" class="easyui-combobox1" editable='false'>
+						<select  id="pid" name="pid" style="width:180px;" class="easyui-combobox1" editable='false'>
 						<option value="0">请选择...</option>
 						
 						</select>
@@ -456,6 +469,10 @@ var adm_menu_edit = `
                 <tr>
                     <td>名称:</td>
                     <td><input class="easyui-textbox" type="text" name="title" style="width:165px;" value="{{.m.title}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
+				</tr>
+				<tr>
+                    <td>标签:</td>
+                    <td><input class="easyui-textbox" type="text" name="label" style="width:165px;" value="{{.m.label}}"  ></input></td>
                 </tr>
                 <tr>
                     <td>排序:</td>

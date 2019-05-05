@@ -69,6 +69,7 @@ func (c *LoginController) Post() {
 		return
 	} else {
 		if u["state"] == "1" {
+			c.SetSession("_me", u)
 			c.SetSession("_uid", u["id"])
 			c.SetSession("_mch_id", u["mch_id"])
 			c.SetSession("_pid", u["pid"])
@@ -76,6 +77,22 @@ func (c *LoginController) Post() {
 			c.SetSession("_roles", u["roles"])
 			c.SetSession("_username", u["username"])
 			c.SetSession("_usertype", u["usertype"])
+			c.SetSession("_sproot", u["sproot"])
+			c.SetSession("_is_manager", u["is_manager"])
+			c.SetSession("_company", u["company"])
+			c.SetSession("_company_id", u["company_id"])
+
+			if u["username"] == "root" {
+				c.SetSession("_sproot", "1")
+			}
+			//用户级别
+			var ut = db.First("select * from adm_usertype where level=?", u["usertype"])
+			if len(ut) > 0 {
+				c.SetSession("_userlevel", ut["level"])
+			} else {
+				c.Ctx.WriteString("0")
+				return
+			}
 			c.SetSession("_logintime", u["logintime"])
 			c.SetSession("_loginip", u["loginip"])
 
