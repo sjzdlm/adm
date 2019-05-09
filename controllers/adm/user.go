@@ -177,6 +177,13 @@ func (c *UserController) HeadImg() {
 //List 列表页面
 func (c *UserController) List() {
 	c.Data["_username"] = c.GetSession("_username").(string)
+	//账号类型信息
+	var sql = `select * from adm_usertype `
+	if c.GetSession("_username").(string) != "root" {
+		sql += " where usertype >= " + c.GetSession("_usertype").(string)
+	}
+	c.Data["usertype_list"] = db.Query(sql)
+
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_user_list)
@@ -210,26 +217,56 @@ func (c *UserController) ListJson() {
 		where += " where `username` like '%" + qtxt + "%'"
 	}
 
-	//根据自己的权限进行过滤
+	//---------------------------------------------------------------------------------------
+	// //根据自己的权限进行过滤
+	// if c.GetSession("_username").(string) != "root" {
+	// 	var pid = c.GetSession("_uid").(string)
+	// 	var w = ChildIds(pid)
+	// 	w = strings.Replace(w, ",,", ",", -1)
+	// 	w = strings.Replace(w, ",,", ",", -1)
+	// 	if where != "" {
+	// 		where += " and id in(" + w + ")"
+	// 	} else {
+	// 		where = "where id in(" + w + ") "
+	// 	}
+	// }
+
+	//根据单位级别进行数据过滤
 	if c.GetSession("_username").(string) != "root" {
-		var pid = c.GetSession("_uid").(string)
-		var w = ChildIds(pid)
-		w = strings.Replace(w, ",,", ",", -1)
-		w = strings.Replace(w, ",,", ",", -1)
-		if where != "" {
-			where += " and id in(" + w + ")"
+		var _mch_id = c.GetSession("_mch_id").(string)
+		var _uid = c.GetSession("_uid").(string)
+		var _is_manager = c.GetSession("_is_manager").(string)
+		var _usertype = c.GetSession("_usertype").(string)
+		var _company_id = c.GetSession("_company_id").(string)
+		//如果是管理员,展示自己级别及以下信息,不包括自己
+		var ids = ChildIds2(_mch_id, _company_id)
+		if _is_manager == "1" {
+			ids = _company_id + "," + ids
+			if where != "" {
+				where += " and usertype >=" + _usertype + " and id !=" + _uid + " and company_id in(" + ids + ") and sproot !=1 "
+			} else {
+				where = "where usertype >=" + _usertype + " and id !=" + _uid + " and company_id in(" + ids + ") and sproot !=1 "
+			}
 		} else {
-			where = "where id in(" + w + ") "
+			if where != "" {
+				where += " and usertype >=" + _usertype + " and id !=" + _uid + " and company_id in(" + ids + ") and sproot !=1 "
+			} else {
+				where = "where usertype >=" + _usertype + " and id !=" + _uid + " and company_id in(" + ids + ") and sproot !=1 "
+			}
 		}
 	}
+	//------------------------------------------------------------------------------------------
+
 	//排序
 	var sort = c.GetString("sort")
 	var order = c.GetString("order")
 	if sort != "" && order != "" {
 		where += " order by " + sort + " " + order
+	} else {
+		where += " order by usertype,company_pid,company_id "
 	}
-	fmt.Println("where:", where)
-	var rst = db.Pager(page, pageSize, "select * from adm_user "+where)
+	//fmt.Println("where:", where)
+	var rst = db.Pager(page, pageSize, "select *  from adm_user "+where)
 	//fmt.Println(rst)
 
 	c.Data["json"] = rst
@@ -282,6 +319,14 @@ func (c *UserController) Edit() {
 	}
 	var roles = db.Query("select * from adm_role" + where)
 	c.Data["roles"] = roles
+	var roleids = ""
+	for i, v := range roles {
+		if i > 0 {
+			roleids += ","
+		}
+		roleids += v["id"]
+	}
+	c.Data["roleids"] = roleids
 	//账号类型列表 根据级别过滤
 	var utypelist = db.Query("select * from adm_usertype where level >=? order by orders", _userlevel)
 	c.Data["utypelist"] = utypelist
@@ -290,7 +335,7 @@ func (c *UserController) Edit() {
 	if m != nil {
 		var r = strings.Split(m["roles"], ",")
 		for i := 0; i < len(r); i++ {
-			jstr += `$('#role` + r[i] + `').attr('checked',true);`
+			jstr += `$('#role` + r[i] + `').prop('checked',true);`
 		}
 	}
 	c.Data["jstr"] = template.JS(jstr)
@@ -343,7 +388,7 @@ func (c *UserController) JsonUType() {
 				if rcount > 0 {
 					jsonstr += ","
 				}
-				jsonstr += `"key` + vv["id"] + `":"` + vv["val"] + `"`
+				jsonstr += `"key` + vv["id"] + `":"` + vv["val"] + `","pkey` + vv["id"] + `":"` + vv["pname"] + `"`
 				rcount++
 			}
 		}
@@ -369,6 +414,7 @@ func (c *UserController) EditPost() {
 	var pid, _ = c.GetInt("pid", 0)
 	var pids = strings.Join(c.GetStrings("pids"), ",")
 	var company_id = c.GetString("company_id")
+	var company_pid = ChildIdPid2(c.GetSession("_mch_id").(string), company_id) //上级单位id
 	var company = c.GetString("company")
 	var is_manager = c.GetString("is_manager")
 	if is_manager == "on" || is_manager == "1" {
@@ -455,6 +501,7 @@ func (c *UserController) EditPost() {
 		mch_id=?,
 		company=?,
 		company_id=?,
+		company_pid=?,
 		is_manager=?,
 		memo=?
 		where id=?
@@ -473,6 +520,7 @@ func (c *UserController) EditPost() {
 				mch_id,
 				company,
 				company_id,
+				company_pid,
 				is_manager,
 				memo,
 				id,
@@ -495,6 +543,7 @@ func (c *UserController) EditPost() {
 		mch_id=?,
 		company=?,
 		company_id=?,
+		company_pid=?,
 		is_manager=?,
 		memo=?
 		where id=?
@@ -515,6 +564,7 @@ func (c *UserController) EditPost() {
 				mch_id,
 				company,
 				company_id,
+				company_pid,
 				is_manager,
 				memo,
 				id,
@@ -545,11 +595,12 @@ func (c *UserController) EditPost() {
 			mch_id,
 			company,
 			company_id,
+			company_pid,
 			headimg,
 			regtime,
 			is_manager,
 			memo
-		)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		`
 		var i = db.Exec(sql,
 			sproot,
@@ -567,6 +618,7 @@ func (c *UserController) EditPost() {
 			mch_id,
 			company,
 			company_id,
+			company_pid,
 			"/images/headimg/2.jpg",
 			time.Now().Format("2006-01-02 15:04:05"),
 			is_manager,
@@ -634,6 +686,13 @@ func (c *UserController) RoleJson() {
 		where += " where `name` like '%" + qtxt + "%'"
 	}
 
+	//排序
+	var sort = c.GetString("sort")
+	var order = c.GetString("order")
+	if sort != "" && order != "" {
+		where += " order by " + sort + " " + order
+	}
+
 	var rst = db.Pager(page, pageSize, "select * from adm_role "+where)
 	//fmt.Println(rst)
 
@@ -649,6 +708,9 @@ func (c *UserController) RoleEdit() {
 		c.Data["m"] = m
 	}
 
+	//读取账号类型
+	var usertypelist = db.Query("select * from adm_usertype order by level")
+	c.Data["usertypelist"] = usertypelist
 	//c.TplName="adm/user/roleedit.html"
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
@@ -696,6 +758,7 @@ func (c *UserController) RoleEditPost() {
 	var info = c.GetString("info")
 	var memo = c.GetString("memo")
 	var state = c.GetString("state")
+	var level = c.GetString("level")
 
 	var sql = ""
 	if id > 0 {
@@ -705,6 +768,7 @@ func (c *UserController) RoleEditPost() {
 		rights=?,
 		info=?,
 		memo=?,
+		level=?,
 		state=?
 		where id=?
 		`
@@ -713,6 +777,7 @@ func (c *UserController) RoleEditPost() {
 			rights,
 			info,
 			memo,
+			level,
 			state,
 			id,
 		)
@@ -744,14 +809,15 @@ func (c *UserController) RoleEditPost() {
 			rights,
 			info,
 			memo,
+			level,
 			state
 		)values(
-			?,?,?,?,?
+			?,?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
 			name, rights,
-			info, memo, state,
+			info, memo, level, state,
 		)
 		if i > 0 {
 			var m = db.First("select * from adm_role where name=? and rights=? order by id desc limit 1", name, rights)
@@ -794,7 +860,7 @@ func (c *UserController) DelRole() {
 func ChildIds(pid string) string {
 	//根据like语法读取
 	var sql = "select GROUP_CONCAT(id) as ids from adm_user where pids ='" + pid + "' or pids like '%," + pid + "' or pids like '" + pid + ",%' or pids like '%," + pid + ",%' "
-	fmt.Println("pids sql:", sql)
+	//fmt.Println("pids sql:", sql)
 	var p = db.First(sql)
 	if len(p) < 1 {
 		return "0"
@@ -873,6 +939,147 @@ func ChildIds(pid string) string {
 		rst = pids
 	} else {
 		rst += "," + pids
+	}
+	return rst
+}
+
+//根据当前商户配置获取 部门(公司)父节点名称 公司表包括 id,name,level,pid,pname
+func ChildIdPid2(mch_id string, id string) string {
+	//读取分级配置
+	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	var dbname = sys["company_db"]
+	var tbname = sys["company_tb"]
+	if dbname == "" || tbname == "" {
+		if tbname != "" && dbname == "" {
+			return ""
+		}
+		tbname = "adm_dept" //默认为系统部门表
+	}
+	var xdb = db.NewDb(dbname)
+	if xdb == nil {
+		xdb = db.NewDb("")
+		if xdb == nil {
+			return "0"
+		}
+	}
+	var m = db.First2(xdb, "select * from "+tbname+" where id=?", id)
+	if len(m) > 0 {
+		return m["pid"]
+	}
+	return ""
+}
+
+//根据当前商户配置获取 部门(公司)父节点名称 公司表包括 id,name,level,pid,pname
+func ChildIdPname2(mch_id string, id string) string {
+	//读取分级配置
+	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	var dbname = sys["company_db"]
+	var tbname = sys["company_tb"]
+	if dbname == "" || tbname == "" {
+		if tbname != "" && dbname == "" {
+			return ""
+		}
+		tbname = "adm_dept" //默认为系统部门表
+	}
+	var xdb = db.NewDb(dbname)
+	if xdb == nil {
+		xdb = db.NewDb("")
+		if xdb == nil {
+			return "0"
+		}
+	}
+	var m = db.First(xdb, "select * from "+tbname+" where id=?", id)
+	if len(m) > 0 {
+		return m["pname"]
+	}
+	return ""
+}
+
+//根据当前商户配置获取所有部门(公司)子节点信息 公司表包括 id,name,level,pid,pname
+func ChildIds2(mch_id string, pid string) string {
+	//读取分级配置
+	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	var dbname = sys["company_db"]
+	var tbname = sys["company_tb"]
+	if dbname == "" || tbname == "" {
+		if tbname != "" && dbname == "" {
+			return ""
+		}
+		tbname = "adm_dept" //默认为系统部门表
+	}
+	var xdb = db.NewDb(dbname)
+	if xdb == nil {
+		xdb = db.NewDb("")
+		if xdb == nil {
+			return "0"
+		}
+	}
+	//读取根节点
+	var list = db.Query2(xdb, "select id,pid from "+tbname+" where pid ="+pid+"")
+	//第一层节点
+	var rst = ""
+	for k, v := range list {
+		if k > 0 {
+			rst += ","
+		}
+		rst += v["id"]
+		//第二层节点
+		var list1 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", v["id"])
+		rst1 := ""
+		for kk, vv := range list1 {
+			if kk > 0 {
+				rst1 += ","
+			}
+			rst1 += vv["id"]
+			//第三层节点
+			var list2 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vv["id"])
+			rst2 := ""
+			for kkk, vvv := range list2 {
+				if kkk > 0 {
+					rst2 += ","
+				}
+				rst2 += vvv["id"]
+
+				//第四层
+				var list3 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vvv["id"])
+				rst3 := ""
+				for kkkk, vvvv := range list3 {
+					if kkkk > 0 {
+						rst3 += ","
+					}
+					rst3 += vvvv["id"]
+
+					//第五层
+					var list4 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vvvv["id"])
+					rst4 := ""
+					for kkkkk, vvvvv := range list4 {
+						if kkkkk > 0 {
+							rst4 += ","
+						}
+						rst4 += vvvvv["id"]
+					}
+					if rst4 != "" {
+						rst3 += `,` + rst4
+					}
+
+				}
+				if rst3 != "" {
+					rst2 += `,` + rst3
+				}
+
+			}
+			if rst2 != "" {
+				rst1 += `,` + rst2
+			}
+
+		}
+		if rst1 != "" {
+			rst += `,` + rst1
+		}
+
+	}
+	if rst == "" {
+		rst = "0"
 	}
 	return rst
 }
@@ -1391,6 +1598,19 @@ function doDel(){
 			}
 			return value;
 	}
+	function rowformater_company_pid(value, row, index) {
+		if(row.company_id == undefined){
+			return '';
+		}
+		if(row.company_id==''){
+			return '';
+		}
+		var v=row.company_id;
+		if(jsoncompany_id['pkey'+row.company_id]!=undefined){
+		 value= jsoncompany_id['pkey'+row.company_id];
+		}
+		return value;
+}
 	function rowformater_state(value, row, index) {
 		if(value=="0"){
 			return "禁用";
@@ -1411,15 +1631,14 @@ function doDel(){
            singleselect="true" pagination="true" fitcolumns="true" fit="true">
         <thead>
             <tr>
-				<th field="id" width="30" sortable="true">编号</th>
-				{{if eq ._username "root"}}
-				<th field="mch_id" width="30" sortable="true">企业</th>
-				{{end}}
-                 <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>             
+				<th field="id" width="30">编号</th>
+				 <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>  
+				<th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
+				<th field="company_pid" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_pid">上级单位</th> 
+                <th field="company_id" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_id">单位</th> 				            
                 <th field="username" align="right" sortable="true" width="70">用户名</th>
 				<th field="realname" align="right" sortable="true" width="90">姓名</th>
-                <th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
-                <th field="company_id" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_id">单位</th> 
+
                 <th field="logintime" width="100" data-options="formatter:rowformater_date">登录时间</th> 
 				<th field="memo" width="50">备注</th>
 				<th field="state" align="center" width="50" sortable="true" data-options="formatter:rowformater_state">状态</th>
@@ -1440,7 +1659,7 @@ function doDel(){
 
 			<a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>&nbsp;
 			{{if eq ._username "root"}}
-			<a href="#" class="easyui-linkbutton" iconcls="icon-43" onclick="doMch();">企业</a>
+			<a style="display:none;" href="#" class="easyui-linkbutton" iconcls="icon-43" onclick="doMch();">企业</a>
 			{{end}}
         </div>
     </div>
@@ -1457,8 +1676,8 @@ function doDel(){
         collapsible:false,//是否可折叠的 
         fit: true,//自动大小 
         url:'/adm/user/listjson', 
-        sortName: 'id', 
-        sortOrder: 'asc', 
+        //sortName: 'usertype', 
+        //sortOrder: 'asc', 
         remoteSort:true,  
         idField:'id', 
 		pageSize:20,
@@ -1615,11 +1834,12 @@ function doRemove(){
            >
         <thead>
             <tr>
-                <th field="id" width="20">ID</th>
-                <th field="name" width="70">名称</th>
-                <th field="info" align="right" width="70">说明</th>
+                <th field="id" sortable="true" width="20">ID</th>
+				<th field="name" sortable="true" width="70">名称</th>
+				<th field="level"  sortable="true" width="70">级别</th>
+                <th field="info" sortable="true" align="right" width="70">说明</th>
 				<th field="memo" width="50">备注</th>
-				<th field="state" width="50">状态</th>
+				<th field="state" sortable="true" width="50">状态</th>
 				<th field=" " width="50">操作</th>
             </tr>
         </thead>
@@ -1641,7 +1861,7 @@ function doRemove(){
         </div>
     </div>
 
-    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:420px;height:320px;padding:5px;overflow-x: hidden;">
+    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:460px;height:360px;padding:5px;overflow-x: hidden;">
         Some Content.
     </div>
 
@@ -1691,7 +1911,28 @@ var adm_user_roleedit = `
                 <tr>
                     <td>名称:</td>
                     <td><input class="easyui-textbox" type="text" style="width:180px;" name="name" value="{{.m.name}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
-                </tr>
+				</tr>
+				<tr id="trdb">
+                    <td>角色级别:</td>
+                    <td>
+                        <select id="level" name="level" style="width:180px;" class="easyui-combobox" editable="false">
+							<option  value="">请选择级别...</option>
+							{{range $k,$v :=.usertypelist}}
+                            <option  value="{{$v.level}}">{{$v.name}}</option>
+                            {{end}}
+                        </select>
+                        <script language="javascript">
+                            $(function(){
+                                $('#level').combobox({
+									onLoadSuccess: function () {
+										$('#level').combobox('select','{{.m.level}}');
+									}
+								});	
+                            });
+                            
+                        </script>
+                    </td>
+				</tr>
 				<tr>
                     <td>权限:</td>
                     <td><input   type="text" name="rights" style="width:180px;" id="rights" data-options="method:'get',labelPosition:'top',multiple:true"></input>
@@ -1779,7 +2020,7 @@ var adm_user_edit = `
         function submitForm(){
             $('#form1').form('submit', {
                 success: function (data) {
-                    if (data != "0") {
+                    if (data == "1") {
                         jq.messager.alert('成功', "操作成功!", "info");
                         $('#tt').datagrid('reload');
                         $('#win').window('close');
@@ -1905,6 +2146,10 @@ var adm_user_edit = `
 												}
 											}
 										});
+										//load rolelist
+										$('#divrole').load('/xapi/rolehtmllist?level='+$('#usertype').combobox('getValue'),function(){
+											{{.jstr}}
+										});
 									}
 								});								
 							})
@@ -1976,15 +2221,10 @@ var adm_user_edit = `
 				<tr>
                     <td>角色:</td>
 					<td> 
-						<div style="max-width:260px;">
-						{{range $k,$r:=.roles}}
-							<input type="checkbox" name="role" id="role{{$r.id}}" value="{{$r.id}}"   /><label for="role{{$r.id}}">{{$r.name}}</label>
-							
-						{{end}}
+						
+						<div style="max-width:260px;" id="divrole">
 						</div> 
-						<script type="text/javascript">
-						{{.jstr}}
-						</script>
+
 					</td>
 				</tr>
 				{{if eq ._username "root"}}
@@ -2405,6 +2645,7 @@ func (c *UserController) UserTypeListJson() {
 func (c *UserController) UserTypeCompany() {
 	//var rst = ""
 	//var cid, _ = c.GetInt("cid", 0)
+	var _usertype = c.GetSession("_usertype").(string)
 	var id, _ = c.GetInt("id", 0)
 	var m = db.First("select * from adm_usertype where level=?", id)
 	if len(m) < 1 {
@@ -2420,8 +2661,12 @@ func (c *UserController) UserTypeCompany() {
 	//单位绑定 绑定字段为 id val  从数据库中读取
 	if m["conn_str"] != "" && m["bindapi"] != "" {
 		var xdb = db.NewDb(m["conn_str"])
+		//如果登记一样,只显示自己
+		if _usertype == strconv.Itoa(id) {
+			m["bindapi"] += " and id=" + c.GetSession("_company_id").(string)
+		}
 		var list = db.Query2(xdb, m["bindapi"])
-		//fmt.Println("--------bindapi:", m["bindapi"])
+		fmt.Println("--------bindapi:", m["bindapi"])
 		c.Data["json"] = list
 		c.ServeJSON()
 	} else {

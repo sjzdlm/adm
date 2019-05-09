@@ -41,6 +41,30 @@ func (c *MainController) Get() {
 		return
 	}
 	c.Data["_user"] = m
+
+	//刷新重置会话信息----------------------------------------------------------------------
+	c.SetSession("_me", m)
+	c.SetSession("_uid", m["id"])
+	c.SetSession("_mch_id", m["mch_id"])
+	c.SetSession("_pid", m["pid"])
+	c.SetSession("_pids", m["pids"])
+	c.SetSession("_roles", m["roles"])
+	c.SetSession("_username", m["username"])
+	c.SetSession("_usertype", m["usertype"])
+	c.SetSession("_sproot", m["sproot"])
+	c.SetSession("_is_manager", m["is_manager"])
+	c.SetSession("_company", m["company"])
+	c.SetSession("_company_id", m["company_id"])
+
+	if m["username"] == "root" {
+		c.SetSession("_sproot", "1")
+	}
+	//用户级别
+	var ut = db.First("select * from adm_usertype where level=?", m["usertype"])
+	if len(ut) > 0 {
+		c.SetSession("_userlevel", ut["level"])
+	}
+
 	//3.获取菜单参数
 	var nid, _ = c.GetInt("nid", 2) //默认为2,'首页'
 	c.Data["nid"] = nid

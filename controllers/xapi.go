@@ -523,7 +523,38 @@ func (c *XApiController) ProvJson() {
 
 //返回街道用户类型JSON
 func (c *XApiController) UserTypeJson() {
-	var sql = `select mch_id,level as id, name as val from adm_usertype where level>0 and state=1 `
+	var where = ""
+	var level, _ = c.GetInt("level", 0)
+	var ignore = c.GetString("ignore")
+
+	where = "where level>=" + strconv.Itoa(level)
+	//读取 > >= < <= 参数
+	if ignore == "" {
+		var rt, _ = c.GetInt("rt", 0)
+		if rt > 0 {
+			where += " and level>" + strconv.Itoa(rt)
+		}
+		var rte, _ = c.GetInt("rte", 0)
+		if rte > 0 {
+			where += " and level>=" + strconv.Itoa(rte)
+		}
+		var lt, _ = c.GetInt("lt", 0)
+		if lt > 0 {
+			where += " and level<" + strconv.Itoa(lt)
+		}
+		var lte, _ = c.GetInt("lte", 0)
+		if lte > 0 {
+			where += " and level<=" + strconv.Itoa(lte)
+		}
+	}
+
+	if where == "" {
+		where = " where state=1 "
+	} else {
+		where += " and state=1 "
+	}
+	var sql = `select mch_id,level as id, name as val from adm_usertype ` + where
+	fmt.Println("sql usertype:", sql)
 	var list = db.Query(sql)
 	c.Data["json"] = list
 	c.ServeJSON()
@@ -545,4 +576,41 @@ func (c *XApiController) JsonUserType() {
 
 	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
 	c.Ctx.Output.Body([]byte(jsonstr))
+}
+
+//根据级别调出角色的复选框html
+func (c *XApiController) RoleHtmlList() {
+	if c.GetSession("_uid") == nil {
+		c.Ctx.WriteString("")
+		fmt.Println("xxxxxxxxxxxxxxxxxx---------------------------")
+		return
+	}
+	var _userlevel = c.GetSession("_userlevel").(string)
+
+	var level = c.GetString("level")
+
+	var roles = c.GetSession("_roles").(string)
+	var where = " "
+	if _userlevel == level {
+		where = " where  id in(" + roles + ") "
+	} else {
+		where = " where level >= " + level
+	}
+	if c.GetSession("_sproot").(string) == "1" {
+		where = ""
+	}
+	where = "select * from adm_role " + where
+	fmt.Println("xapi role:", where)
+	var list = db.Query(where)
+	var rst = ` `
+	for _, vv := range list {
+		rst += `
+		<input type="checkbox" name="role" id="role` + vv["id"] + `" value="` + vv["id"] + `"   /><label for="role` + vv["id"] + `">` + vv["name"] + `</label>
+		`
+	}
+	rst += `
+	`
+
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
 }
