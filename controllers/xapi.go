@@ -19,6 +19,24 @@ type XApiController struct {
 	beego.Controller
 }
 
+//返回一个ID
+func (c *XApiController) ID() {
+	//var id = fmt.Sprintf("T%v", time.Now().UnixNano()/1e6)
+	var t = ""
+	var companyid = c.GetSession("_company_id")
+	if companyid != nil {
+		t = companyid.(string)
+	}
+
+	for i := len(t); i < 5; i++ {
+		t = "0" + t
+	}
+	//var id = "T" + t + time.Now().Format("060102150405.000")
+	var id = "T" + t + time.Now().Format("060102150405")
+
+	c.Ctx.WriteString(id)
+}
+
 //页面导航列表-移动端专用
 func (c *XApiController) NavListJson() {
 	var pageid = c.GetString("pageid")

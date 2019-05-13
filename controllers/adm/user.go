@@ -21,6 +21,64 @@ type UserController struct {
 	beego.Controller
 }
 
+//输出个人session中的信息
+func (c *UserController) Me() {
+	var _uid = c.GetSession("_uid")
+	c.Data["_uid"] = _uid
+	var _mch_id = c.GetSession("_mch_id")
+	c.Data["_mch_id"] = _mch_id
+	var _pid = c.GetSession("_pid")
+	c.Data["_pid"] = _pid
+	var _pids = c.GetSession("_pids")
+	c.Data["_pids"] = _pids
+	var _roles = c.GetSession("_roles")
+	c.Data["_roles"] = _roles
+	var _username = c.GetSession("_username")
+	c.Data["_username"] = _username
+	var _sproot = c.GetSession("_sproot")
+	c.Data["_sproot"] = _sproot
+	var _is_manager = c.GetSession("_is_manager")
+	c.Data["_is_manager"] = _is_manager
+	var _company = c.GetSession("_company")
+	c.Data["_company"] = _company
+	var _company_id = c.GetSession("_company_id")
+	c.Data["_company_id"] = _company_id
+	var _company_pid = c.GetSession("_company_pid")
+	c.Data["_company_pid"] = _company_pid
+	var _userlevel = c.GetSession("_userlevel")
+	c.Data["_userlevel"] = _userlevel
+
+	var html = `
+	var _uid={{._uid}} </br>
+	var _mch_id={{._mch_id}}</br>
+	var _pid={{._pid}}</br>
+	var _pids={{._pids}}</br>
+	var _roles={{._roles}}</br>
+	var _username={{._username}}</br>
+	var _sproot={{._sproot}}</br>
+	var _sproot={{._sproot}}</br>
+	var _is_manager={{._is_manager}}</br>
+	var _company={{._company}}</br>
+    var _company_id={{._company_id}}</br>
+    var _company_pid={{._company_pid}}</br>
+	var _userlevel={{._userlevel}}</br>
+	`
+
+	var tpl = template.New("")
+	tpl.Parse(html)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e != nil {
+		fmt.Println("template 执行错误:", e.Error())
+		c.Ctx.WriteString("{}")
+		return
+	}
+	var rst = buf.String()
+
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+}
+
 //用户信息页面
 func (c *UserController) UInfo() {
 	var _uid = c.GetSession("_uid")
@@ -180,7 +238,7 @@ func (c *UserController) List() {
 	//账号类型信息
 	var sql = `select * from adm_usertype `
 	if c.GetSession("_username").(string) != "root" {
-		sql += " where usertype >= " + c.GetSession("_usertype").(string)
+		sql += " where level >= " + c.GetSession("_usertype").(string)
 	}
 	c.Data["usertype_list"] = db.Query(sql)
 
@@ -265,7 +323,7 @@ func (c *UserController) ListJson() {
 	} else {
 		where += " order by usertype,company_pid,company_id "
 	}
-	//fmt.Println("where:", where)
+	fmt.Println("where:", where)
 	var rst = db.Pager(page, pageSize, "select *  from adm_user "+where)
 	//fmt.Println(rst)
 
@@ -421,6 +479,11 @@ func (c *UserController) EditPost() {
 		is_manager = "1"
 	} else {
 		is_manager = "0"
+	}
+
+	if company_id == "" {
+		c.Ctx.WriteString("账号所属单位不能为空!")
+		return
 	}
 
 	var is_sq = "1"
@@ -795,6 +858,9 @@ func (c *UserController) RoleEditPost() {
 			db.Exec(sql)
 			sql = `update adm_role_auth set state=1 where roleid=` + strconv.Itoa(id) + ` and menuid in(` + rights + `)`
 			db.Exec(sql)
+			//删除多余的权限
+			sql = `delete from adm_role_auth where state=0 and roleid=` + strconv.Itoa(id)
+			db.Exec(sql)
 
 			c.Ctx.WriteString("1")
 			return
@@ -857,103 +923,116 @@ func (c *UserController) DelRole() {
 		return
 	}
 }
-func ChildIds(pid string) string {
-	//根据like语法读取
-	var sql = "select GROUP_CONCAT(id) as ids from adm_user where pids ='" + pid + "' or pids like '%," + pid + "' or pids like '" + pid + ",%' or pids like '%," + pid + ",%' "
-	//fmt.Println("pids sql:", sql)
-	var p = db.First(sql)
-	if len(p) < 1 {
-		return "0"
-	}
-	var pids = p["ids"]
-	// if rst == "" {
-	// 	return "0"
-	// }
-	// return rst
 
-	//读取根节点
-	var list = db.Query("select * from adm_user where pid =" + pid + "")
-	//第一层节点
-	var rst = ""
-	for k, v := range list {
-		if k > 0 {
-			rst += ","
-		}
-		rst += v["id"]
-		//第二层节点
-		var list1 = db.Query("select * from adm_user where pid=?", v["id"])
-		rst1 := ""
-		for kk, vv := range list1 {
-			if kk > 0 {
-				rst1 += ","
-			}
-			rst1 += vv["id"]
-			//第三层节点
-			var list2 = db.Query("select * from adm_user where pid=?", vv["id"])
-			rst2 := ""
-			for kkk, vvv := range list2 {
-				if kkk > 0 {
-					rst2 += ","
-				}
-				rst2 += vvv["id"]
+//早期分级检索方式,使用id  pid方式
+// func ChildIds(pid string) string {
+// 	//根据like语法读取
+// 	var sql = "select GROUP_CONCAT(id) as ids from adm_user where pids ='" + pid + "' or pids like '%," + pid + "' or pids like '" + pid + ",%' or pids like '%," + pid + ",%' "
+// 	//fmt.Println("pids sql:", sql)
+// 	var p = db.First(sql)
+// 	if len(p) < 1 {
+// 		return "0"
+// 	}
+// 	var pids = p["ids"]
+// 	// if rst == "" {
+// 	// 	return "0"
+// 	// }
+// 	// return rst
 
-				//第四层
-				var list3 = db.Query("select * from adm_user where pid=?", vvv["id"])
-				rst3 := ""
-				for kkkk, vvvv := range list3 {
-					if kkkk > 0 {
-						rst3 += ","
-					}
-					rst3 += vvvv["id"]
+// 	//读取根节点
+// 	var list = db.Query("select * from adm_user where pid =" + pid + "")
+// 	//第一层节点
+// 	var rst = ""
+// 	for k, v := range list {
+// 		if k > 0 {
+// 			rst += ","
+// 		}
+// 		rst += v["id"]
+// 		//第二层节点
+// 		var list1 = db.Query("select * from adm_user where pid=?", v["id"])
+// 		rst1 := ""
+// 		for kk, vv := range list1 {
+// 			if kk > 0 {
+// 				rst1 += ","
+// 			}
+// 			rst1 += vv["id"]
+// 			//第三层节点
+// 			var list2 = db.Query("select * from adm_user where pid=?", vv["id"])
+// 			rst2 := ""
+// 			for kkk, vvv := range list2 {
+// 				if kkk > 0 {
+// 					rst2 += ","
+// 				}
+// 				rst2 += vvv["id"]
 
-					//第五层
-					var list4 = db.Query("select * from adm_user where pid=?", vvvv["id"])
-					rst4 := ""
-					for kkkkk, vvvvv := range list4 {
-						if kkkkk > 0 {
-							rst4 += ","
-						}
-						rst4 += vvvvv["id"]
-					}
-					if rst4 != "" {
-						rst3 += `,` + rst4
-					}
+// 				//第四层
+// 				var list3 = db.Query("select * from adm_user where pid=?", vvv["id"])
+// 				rst3 := ""
+// 				for kkkk, vvvv := range list3 {
+// 					if kkkk > 0 {
+// 						rst3 += ","
+// 					}
+// 					rst3 += vvvv["id"]
 
-				}
-				if rst3 != "" {
-					rst2 += `,` + rst3
-				}
+// 					//第五层
+// 					var list4 = db.Query("select * from adm_user where pid=?", vvvv["id"])
+// 					rst4 := ""
+// 					for kkkkk, vvvvv := range list4 {
+// 						if kkkkk > 0 {
+// 							rst4 += ","
+// 						}
+// 						rst4 += vvvvv["id"]
+// 					}
+// 					if rst4 != "" {
+// 						rst3 += `,` + rst4
+// 					}
 
-			}
-			if rst2 != "" {
-				rst1 += `,` + rst2
-			}
+// 				}
+// 				if rst3 != "" {
+// 					rst2 += `,` + rst3
+// 				}
 
-		}
-		if rst1 != "" {
-			rst += `,` + rst1
-		}
+// 			}
+// 			if rst2 != "" {
+// 				rst1 += `,` + rst2
+// 			}
 
-	}
-	if rst == "" {
-		rst = pids
-	} else {
-		rst += "," + pids
-	}
-	return rst
-}
+// 		}
+// 		if rst1 != "" {
+// 			rst += `,` + rst1
+// 		}
 
-//根据当前商户配置获取 部门(公司)父节点名称 公司表包括 id,name,level,pid,pname
+// 	}
+// 	if rst == "" {
+// 		rst = pids
+// 	} else {
+// 		rst += "," + pids
+// 	}
+// 	return rst
+// }
+
+//根据当前商户配置获取 部门(公司)父节点id 公司表包括 id,name,level,pid,pname
 func ChildIdPid2(mch_id string, id string) string {
 	//读取分级配置
-	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	// var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	// var dbname = sys["company_db"]
+	// var tbname = sys["company_tb"]
+
+	var sys = db.First("select * from adm_mch where id=?", mch_id)
 	var dbname = sys["company_db"]
 	var tbname = sys["company_tb"]
+	var field_id = sys["company_idfield"]
+	var field_pid = sys["company_pidfield"]
+	//var field_name = sys["company_namefield"]
+
 	if dbname == "" || tbname == "" {
 		if tbname != "" && dbname == "" {
 			return ""
 		}
 		tbname = "adm_dept" //默认为系统部门表
+		field_id = "id"
+		field_pid = "pid"
+		//field_name = "name"
 	}
 	var xdb = db.NewDb(dbname)
 	if xdb == nil {
@@ -962,9 +1041,9 @@ func ChildIdPid2(mch_id string, id string) string {
 			return "0"
 		}
 	}
-	var m = db.First2(xdb, "select * from "+tbname+" where id=?", id)
+	var m = db.First2(xdb, "select * from "+tbname+" where "+field_id+"=?", id)
 	if len(m) > 0 {
-		return m["pid"]
+		return m[field_pid]
 	}
 	return ""
 }
@@ -972,14 +1051,25 @@ func ChildIdPid2(mch_id string, id string) string {
 //根据当前商户配置获取 部门(公司)父节点名称 公司表包括 id,name,level,pid,pname
 func ChildIdPname2(mch_id string, id string) string {
 	//读取分级配置
-	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	// var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	// var dbname = sys["company_db"]
+	// var tbname = sys["company_tb"]
+
+	var sys = db.First("select * from adm_mch where id=?", mch_id)
 	var dbname = sys["company_db"]
 	var tbname = sys["company_tb"]
+	var field_id = sys["company_idfield"]
+	var field_pid = sys["company_pidfield"]
+	var field_name = sys["company_namefield"]
+
 	if dbname == "" || tbname == "" {
 		if tbname != "" && dbname == "" {
 			return ""
 		}
 		tbname = "adm_dept" //默认为系统部门表
+		field_id = "id"
+		field_pid = "pid"
+		field_name = "name"
 	}
 	var xdb = db.NewDb(dbname)
 	if xdb == nil {
@@ -988,9 +1078,12 @@ func ChildIdPname2(mch_id string, id string) string {
 			return "0"
 		}
 	}
-	var m = db.First(xdb, "select * from "+tbname+" where id=?", id)
+	var m = db.First2(xdb, "select * from "+tbname+" where "+field_id+"=?", id)
 	if len(m) > 0 {
-		return m["pname"]
+		var mm = db.First2(xdb, "select * from "+tbname+" where "+field_id+"=?", m[field_pid])
+		if len(mm) > 0 {
+			return mm[field_name]
+		}
 	}
 	return ""
 }
@@ -998,14 +1091,22 @@ func ChildIdPname2(mch_id string, id string) string {
 //根据当前商户配置获取所有部门(公司)子节点信息 公司表包括 id,name,level,pid,pname
 func ChildIds2(mch_id string, pid string) string {
 	//读取分级配置
-	var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	//var sys = db.First("select * from adm_system where mch_id=? and user_level=0 and user_id=0 ", mch_id)
+	var sys = db.First("select * from adm_mch where id=?", mch_id)
 	var dbname = sys["company_db"]
 	var tbname = sys["company_tb"]
+	var field_id = sys["company_idfield"]
+	var field_pid = sys["company_pidfield"]
+	//var field_name = sys["company_namefield"]
+
 	if dbname == "" || tbname == "" {
 		if tbname != "" && dbname == "" {
 			return ""
 		}
 		tbname = "adm_dept" //默认为系统部门表
+		field_id = "id"
+		field_pid = "pid"
+		//field_name = "name"
 	}
 	var xdb = db.NewDb(dbname)
 	if xdb == nil {
@@ -1015,48 +1116,63 @@ func ChildIds2(mch_id string, pid string) string {
 		}
 	}
 	//读取根节点
-	var list = db.Query2(xdb, "select id,pid from "+tbname+" where pid ="+pid+"")
+	var list = db.Query2(xdb, "select "+field_id+","+field_pid+" from "+tbname+" where "+field_pid+" ="+pid+"")
 	//第一层节点
 	var rst = ""
 	for k, v := range list {
+		if v[field_id] == "" {
+			continue
+		}
 		if k > 0 {
 			rst += ","
 		}
-		rst += v["id"]
+		rst += v[field_id]
 		//第二层节点
-		var list1 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", v["id"])
+		var list1 = db.Query2(xdb, "select "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+" =?", v[field_pid])
 		rst1 := ""
 		for kk, vv := range list1 {
+			if vv[field_pid] == "" {
+				continue
+			}
 			if kk > 0 {
 				rst1 += ","
 			}
-			rst1 += vv["id"]
+			rst1 += vv[field_pid]
 			//第三层节点
-			var list2 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vv["id"])
+			var list2 = db.Query2(xdb, "select  "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+"=?", vv[field_id])
 			rst2 := ""
 			for kkk, vvv := range list2 {
+				if vvv[field_id] == "" {
+					continue
+				}
 				if kkk > 0 {
 					rst2 += ","
 				}
-				rst2 += vvv["id"]
+				rst2 += vvv[field_id]
 
 				//第四层
-				var list3 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vvv["id"])
+				var list3 = db.Query2(xdb, "select  "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+"=?", vvv[field_id])
 				rst3 := ""
 				for kkkk, vvvv := range list3 {
+					if vvvv[field_id] == "" {
+						continue
+					}
 					if kkkk > 0 {
 						rst3 += ","
 					}
-					rst3 += vvvv["id"]
+					rst3 += vvvv[field_id]
 
 					//第五层
-					var list4 = db.Query2(xdb, "select id,pid from "+tbname+"  where pid=?", vvvv["id"])
+					var list4 = db.Query2(xdb, "select  "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+"=?", vvvv[field_id])
 					rst4 := ""
 					for kkkkk, vvvvv := range list4 {
+						if vvvvv[field_id] == "" {
+							continue
+						}
 						if kkkkk > 0 {
 							rst4 += ","
 						}
-						rst4 += vvvvv["id"]
+						rst4 += vvvvv[field_id]
 					}
 					if rst4 != "" {
 						rst3 += `,` + rst4
@@ -1081,6 +1197,7 @@ func ChildIds2(mch_id string, pid string) string {
 	if rst == "" {
 		rst = "0"
 	}
+
 	return rst
 }
 
@@ -2334,6 +2451,12 @@ func (c *UserController) RoleAuthListJson() {
 	if qtxt != "" {
 		where += " and  `roleid` like '%" + qtxt + "%'"
 	}
+	//排序
+	var sort = c.GetString("sort")
+	var order = c.GetString("order")
+	if sort != "" && order != "" {
+		where += " order by " + sort + " " + order
+	}
 
 	var rst = db.Pager(page, pageSize, "select * from adm_role_auth "+where)
 	//fmt.Println(rst)
@@ -2505,14 +2628,14 @@ function doFieldDel(id){
     <table class="easyui-datagrid"  
            url="/adm/user/roleauthlistjson?roleid={{.roleid}}"  
            title="角色权限设置" toolbar="#tb" id="tt"
-           singleselect="true" fitcolumns="true" fit="true">
+           singleselect="true" pageSize="50" pageList="[20, 50, 100]" pagination="true" fitcolumns="true" fit="true">
         <thead>
             <tr>
-				<th field="id" width="5">ID</th>
-				<th field="roleid" align="center"  width="10" >角色ID</th>
-				<th field="rolename"  width="20" >角色</th>
-				<th field="menuid" align="center"  width="10" >权限ID</th>
-                <th field="menuname" align="center" data-options="formatter:rowformater_name" width="20" >权限</th>
+				<th field="id" width="15" sortable="true">ID</th>
+				<th field="roleid" align="center"  width="15" sortable="true">角色ID</th>
+				<th field="rolename"  width="20" sortable="true">角色</th>
+				<th field="menuid" align="center" sortable="true" width="15" >权限ID</th>
+                <th field="menuname" align="center" sortable="true" data-options="formatter:rowformater_name" width="20" >权限</th>
                 <th field="ac_add"  width="10"  data-options="formatter:rowformater_add" >新增</th> 
 				<th field="ac_del"  width="10"  data-options="formatter:rowformater_del" >删除</th> 
 				<th field="ac_query"  width="10"  data-options="formatter:rowformater_query" >查询</th> 
@@ -2653,7 +2776,17 @@ func (c *UserController) UserTypeCompany() {
 		// rst += `"key0":"---"`
 		// rst += `};`
 
-		c.Data["json"] = `[]`
+		c.Data["json"] = `
+		[
+			{
+				"id": "0",
+				"level": "1",
+				"pid": "0",
+				"pname": "-",
+				"val": "请选择..."
+			}
+		]
+		`
 		c.ServeJSON()
 		return
 	}
@@ -2661,8 +2794,8 @@ func (c *UserController) UserTypeCompany() {
 	//单位绑定 绑定字段为 id val  从数据库中读取
 	if m["conn_str"] != "" && m["bindapi"] != "" {
 		var xdb = db.NewDb(m["conn_str"])
-		//如果登记一样,只显示自己
-		if _usertype == strconv.Itoa(id) {
+		//如果等级一样,只显示自己
+		if _usertype == strconv.Itoa(id) && c.GetSession("_username").(string) != "root" {
 			m["bindapi"] += " and id=" + c.GetSession("_company_id").(string)
 		}
 		var list = db.Query2(xdb, m["bindapi"])
@@ -2670,7 +2803,17 @@ func (c *UserController) UserTypeCompany() {
 		c.Data["json"] = list
 		c.ServeJSON()
 	} else {
-		c.Data["json"] = `[]`
+		c.Data["json"] = `
+		[
+			{
+				"id": "0",
+				"level": "1",
+				"pid": "0",
+				"pname": "-",
+				"val": "请选择..."
+			}
+		]
+		`
 		c.ServeJSON()
 	}
 

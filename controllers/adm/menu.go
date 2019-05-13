@@ -1333,6 +1333,33 @@ var adm_menu_edit = `
                 <tr>
                     <td>URL:</td>
                     <td><input class="easyui-textbox" type="text" id="url" name="url" style="width:165px;" value="{{.m.url}}" data-options="required:true"></input></td>
+				</tr>
+				<tr>
+                    <td>模块:</td>
+					<td>
+					<select class="easyui-combogrid" style="width:100%" data-options="
+							panelWidth: 500,
+							idField: 'code',
+							textField: 'title',
+							url: '/adm/tb/tblist',
+							method: 'get',
+							columns: [[
+								{field:'id',title:'ID',width:50},
+								{field:'proj',title:'分类',width:100},
+								{field:'title',title:'模块',width:120,align:'right'},
+								{field:'code',title:'代号',width:120,align:'right'},
+								{field:'table',title:'表名',width:100},
+								{field:'memo',title:'备注',width:120,align:'center'}
+							]],
+							fitColumns: true,
+							label: '',
+							labelPosition: 'top',
+							onSelect: function (rowIndex, row){
+								$('#url').textbox('setValue','/adm/tb/list/'+row.code);
+							}
+						">
+					</select>
+					</td>
                 </tr>
                 <tr>
                     <td>备注:</td>

@@ -98,7 +98,17 @@ func (c *MchController) Edit() {
 		var m = db.First("select * from adm_mch where id=?", id)
 		c.Data["m"] = m
 	}
-
+	var _username = c.GetSession("_username")
+	if _username == "root" {
+		c.Data["isroot"] = "1"
+	} else {
+		c.Data["isroot"] = "0"
+	}
+	//数据库链接
+	var dblist = db.Query("select * from adm_conn where state=1")
+	if dblist != nil {
+		c.Data["dblist"] = dblist
+	}
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_mch_edit)
@@ -154,6 +164,11 @@ func (c *MchController) EditPost() {
 	var mch_email = c.GetString("mch_email")
 	var state = c.GetString("mch_state")
 
+	var company_db = c.GetString("company_db")
+	var company_tb = c.GetString("company_tb")
+	var company_idfield = c.GetString("company_idfield")
+	var company_pidfield = c.GetString("company_pidfield")
+
 	var sql = ""
 	if id > 0 {
 		sql = `
@@ -163,6 +178,10 @@ func (c *MchController) EditPost() {
 		mch_company=?,
 		mch_phone=?,
 		mch_email=?,
+		company_db=?,
+		company_tb=?,
+		company_idfield=?,
+		company_pidfield=?,
 		mch_state=?
 		where id=?
 		`
@@ -172,6 +191,10 @@ func (c *MchController) EditPost() {
 			mch_company,
 			mch_phone,
 			mch_email,
+			company_db,
+			company_tb,
+			company_idfield,
+			company_pidfield,
 			state,
 			id,
 		)
@@ -190,9 +213,13 @@ func (c *MchController) EditPost() {
 		mch_company,
 		mch_phone,
 		mch_email,
+		company_db,
+		company_tb,
+		company_idfield,
+		company_pidfield,
 		mch_state
 		)values(
-			?,?,?,?,?,?
+			?,?,?,?,?,?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
@@ -201,6 +228,10 @@ func (c *MchController) EditPost() {
 			mch_company,
 			mch_phone,
 			mch_email,
+			company_db,
+			company_tb,
+			company_idfield,
+			company_pidfield,
 			state,
 		)
 		if i > 0 {
@@ -448,7 +479,7 @@ function doDel(){
 				<th field="mch_contacts" width="70">联系人</th>
 				<th field="mch_phone" width="70">联系电话</th>
 				<th field="mch_email" width="50">邮箱</th>
-				<th field="mch_state" width="50" formatter="rowformater_state">状态</th>
+				<!--<th field="mch_state" width="50" formatter="rowformater_state">状态</th>-->
 				<th field=" " width="50">操作</th>
             </tr>
         </thead>
@@ -470,7 +501,7 @@ function doDel(){
         </div>
     </div>
 
-    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:420px;height:420px;padding:5px;overflow-x: hidden;">
+    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:490px;height:460px;padding:5px;overflow-x: hidden;">
         Some Content.
     </div>
 
@@ -483,6 +514,12 @@ var adm_mch_edit = `
 <script type="text/javascript">
     var jq = jQuery;
         $(function () {
+			{{if eq .isroot "0"}}
+				$('#trdb').hide();
+				$('#trtb').hide();
+				$('#trid').hide();
+				$('#trpid').hide();
+			{{end}}
             if ('{{.m.state}}' == '1') {
                 $('#state').attr('checked', 'checked');
             }
@@ -537,14 +574,50 @@ var adm_mch_edit = `
                     <td>电子邮箱:</td>
                     <td><input class="easyui-textbox" type="text" style="width:180px;" name="mch_email" value="{{.m.mch_email}}"></input></td>
                 </tr>
-
-                <tr>
+				
+				<tr id="trdb">
+                    <td>单位库名:</td>
+                    <td>
+                        <select id="company_db" name="company_db" style="width:183px;" class="easyui-combobox" editable="false">
+							<option  value="">请选择数据库...</option>
+							{{range $k,$v :=.dblist}}
+                            <option  value="{{$v.conn}}">{{$v.title}}</option>
+                            {{end}}
+                        </select>
+                        <script language="javascript">
+                            $(function(){
+                                $('#company_db').combobox({
+									onLoadSuccess: function () {
+										$('#company_db').combobox('select','{{.m.company_db}}');
+									}
+								});	
+                            });
+                            
+						</script>
+						</br>
+						所属单位分级检索所用数据库;</br>不填默认使用系统自带部门表信息.
+                    </td>
+				</tr>
+				<tr id="trtb">
+                    <td>单位表名:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="company_tb" value="{{.m.company_tb}}"></input></td>
+				</tr>
+				<tr id="trid">
+                    <td>单位ID字段:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="company_idfield" value="{{.m.company_idfield}}"></input></td>
+				</tr>
+				<tr id="trpid">
+                    <td>单位PID字段:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="company_pidfield" value="{{.m.company_pidfield}}"></input></td>
+				</tr> 
+                <tr style="display:none;">
                     <td>状态:</td>
 					<td>
 					<input type="hidden" id="id" name="id" value="{{.m.id}}" />
                         <select id="mch_state" class="easyui-combobox" name="mch_state" editable="false" style="width:180px;" >
-                            <option value="0">等待审核</option>
-							<option value="1">通过审核</option> 
+							<option value="1">通过审核</option> 							
+						<option value="0">等待审核</option>
+
 							<option value="2">审核未通过</option>
                         </select>
 						<script type="text/javascript">

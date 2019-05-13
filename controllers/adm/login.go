@@ -81,6 +81,7 @@ func (c *LoginController) Post() {
 			c.SetSession("_is_manager", u["is_manager"])
 			c.SetSession("_company", u["company"])
 			c.SetSession("_company_id", u["company_id"])
+			c.SetSession("_company_pid", u["company_pid"])
 
 			if u["username"] == "root" {
 				c.SetSession("_sproot", "1")

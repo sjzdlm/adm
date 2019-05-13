@@ -55,6 +55,7 @@ func (c *MainController) Get() {
 	c.SetSession("_is_manager", m["is_manager"])
 	c.SetSession("_company", m["company"])
 	c.SetSession("_company_id", m["company_id"])
+	c.SetSession("_company_pid", m["company_pid"])
 
 	if m["username"] == "root" {
 		c.SetSession("_sproot", "1")
