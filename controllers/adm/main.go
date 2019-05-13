@@ -91,6 +91,12 @@ func (c *MainController) Get() {
 	db.Exec("update adm_menu set nid=id where nid is null ")
 	var topmenu = db.Query("select * from adm_menu where pid=1 and nid in (" + rs + ") order by orders ")
 	c.Data["_topmenu"] = topmenu
+	if len(topmenu) > 0 {
+		for _, v := range topmenu {
+			c.Data["nid"] = v["id"]
+			break
+		}
+	}
 
 	var _datajson = ""
 
