@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"strconv"
 	"strings"
@@ -11,33 +10,16 @@ import (
 	"github.com/sjzdlm/db"
 )
 
-//MPController 控制器  动态页面
-type MPController struct {
+//AppController 控制器  动态页面
+type AppController struct {
 	beego.Controller
 }
 
 ///Vue组件脚本
-func (c *MPController) Vue() {
+func (c *AppController) Vue() {
 	var rst = ""
 	var appcode = c.GetString("app")
-	if appcode == "" {
-		// var list = db.Query("select * from tbm_widget_type where state=1")
-		// for _, row := range list {
-		// 	//模板
-		// 	rst += `
-		// 	var ` + row["tplcode"] + ` = Vue.extend({
-		// 		template: '\
-		// 		`
-		// 	rst += strings.Replace(strings.Replace(row["tpltxt"], "\r\n", "\\\r\n", -1), "'", "\\'", -1)
-		// 	rst += `	',
-		// 	`
-		// 	rst += row["tpldata"]
-		// 	rst += `})
-		// 	Vue.component('` + row["tplcode"] + `', ` + row["tplcode"] + `)
-		// 	`
-		// }
-
-	} else {
+	if appcode != "" {
 		var app = db.First("select * from tbm_app where code=? limit 1", appcode)
 		if len(app) > 0 {
 			var plist = db.Query("select * from tbm_page where app_id=?", app["id"])
@@ -93,7 +75,7 @@ func (c *MPController) Vue() {
 }
 
 ///Vue组件样式
-func (c *MPController) CSS() {
+func (c *AppController) CSS() {
 	var rst = ""
 	var appcode = c.GetString("app")
 	if appcode == "" {
@@ -109,9 +91,9 @@ func (c *MPController) CSS() {
 	var list = db.Query("select  id, form_type,tplcss  from tbm_widget  where tbmid in (select id from tbm_page where app_id=?) and state=1", app["id"])
 	var types = make(map[string]string)
 	for _, row := range list {
-		if _, ok := types[row["form_type"]]; ok {
-			continue
-		}
+		// if _, ok := types[row["form_type"]]; ok {
+		// 	continue
+		// }
 		types[row["form_type"]] = row["form_type"]
 		rst += row["tplcss"] + "\r\n"
 	}
@@ -123,7 +105,7 @@ func (c *MPController) CSS() {
 }
 
 //Get 默认页
-func (c *MPController) Get() {
+func (c *AppController) Get() {
 	var rst = ""
 	var appcode = c.Ctx.Input.Param(":app")
 	if appcode == "" {
@@ -140,7 +122,8 @@ func (c *MPController) Get() {
 		return
 	}
 	c.Data["app"] = app
-
+	//判断是否需要登录
+	c.Data["login_on"] = app["login_on"]
 	//应用导航
 	var isnav = "0"
 	var nav = db.Query("select * from  tbm_nav_menu where app_id=? order by sort ", app["id"])
@@ -189,12 +172,12 @@ func (c *MPController) Get() {
 			if routes != "" {
 				routes += ","
 			}
-			routes += "{path: '/', component: " + row["code"] + "}"
+			routes += "{path: '/', component: " + row["code"] + ",meta:{index:0,keepAlive: true}}"
 		} else {
 			if routes != "" {
 				routes += ","
 			}
-			routes += "{path: '/" + row["code"] + "', component: " + row["code"] + ",meta:{index:" + strconv.Itoa(i) + "}}"
+			routes += "{path: '/" + row["code"] + "', component: " + row["code"] + ",meta:{index:" + strconv.Itoa(i) + ",keepAlive: false}}"
 		}
 
 		//
@@ -218,9 +201,9 @@ func (c *MPController) Get() {
 
 	}
 	c.Data["pagetpl"] = pagetpl
-	fmt.Println("pagetpl", pagetpl)
+	//fmt.Println("pagetpl", pagetpl)
 
 	c.Data["routes"] = routes
 
-	c.TplName = "mp.html"
+	c.TplName = "app.html"
 }

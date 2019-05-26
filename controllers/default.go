@@ -210,6 +210,9 @@ func funcCookieSet(ctx *context.Context, str string, val string) string {
 
 //获取session值
 func funcSessionGet(ctx *context.Context, str string) string {
+	if ctx.Input.Session(str) == nil {
+		return ""
+	}
 	var rst = ctx.Input.Session(str).(string)
 	return rst
 }

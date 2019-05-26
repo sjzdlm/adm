@@ -364,6 +364,13 @@ func (c *UserController) Edit() {
 	var id, _ = c.GetInt("id", 0)
 	var m = db.First("select * from adm_user where id=?", id)
 	c.Data["m"] = m
+	if len(m) > 0 {
+		c.Data["uname"] = m["username"]
+		c.Data["pwd"] = m["password"]
+	} else {
+		c.Data["uname"] = ""
+		c.Data["pwd"] = "358719"
+	}
 	//公司列表
 	var mchlist = db.Query("select * from adm_mch")
 	c.Data["mchlist"] = mchlist
@@ -491,6 +498,20 @@ func (c *UserController) EditPost() {
 		is_sq = "0"
 	}
 
+	//检查是否有重复账号
+	if id > 0 {
+		var jcu = db.First("select * from adm_user where username=? and id!=?", username, id)
+		if len(jcu) > 0 {
+			c.Ctx.WriteString("账号不能重复!")
+			return
+		}
+	} else {
+		var jcu = db.First("select * from adm_user where username=?", username)
+		if len(jcu) > 0 {
+			c.Ctx.WriteString("账号不能重复!")
+			return
+		}
+	}
 	//超管权限
 	var sproot = c.GetString("sproot")
 	if sproot == "" {
@@ -1173,6 +1194,37 @@ func ChildIds2(mch_id string, pid string) string {
 							rst4 += ","
 						}
 						rst4 += vvvvv[field_id]
+						//第6层
+						var list5 = db.Query2(xdb, "select  "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+"=?", vvvvv[field_id])
+						rst5 := ""
+						for kkkkkk, vvvvvv := range list5 {
+							if vvvvvv[field_id] == "" {
+								continue
+							}
+							if kkkkkk > 0 {
+								rst5 += ","
+							}
+							rst5 += vvvvvv[field_id]
+
+							//第7层
+							var list6 = db.Query2(xdb, "select  "+field_id+","+field_pid+" from "+tbname+"  where "+field_pid+"=?", vvvvvv[field_id])
+							rst6 := ""
+							for kkkkkkk, vvvvvvv := range list6 {
+								if vvvvvvv[field_id] == "" {
+									continue
+								}
+								if kkkkkkk > 0 {
+									rst6 += ","
+								}
+								rst6 += vvvvvvv[field_id]
+							}
+							if rst6 != "" {
+								rst5 += `,` + rst6
+							}
+						}
+						if rst5 != "" {
+							rst4 += `,` + rst5
+						}
 					}
 					if rst4 != "" {
 						rst3 += `,` + rst4
@@ -1197,7 +1249,9 @@ func ChildIds2(mch_id string, pid string) string {
 	if rst == "" {
 		rst = "0"
 	}
-
+	rst = strings.Replace(rst, ",,", ",", -1)
+	rst = strings.Replace(rst, ",,", ",", -1)
+	rst = strings.Replace(rst, ",,", ",", -1)
 	return rst
 }
 
@@ -1748,7 +1802,7 @@ function doDel(){
            singleselect="true" pagination="true" fitcolumns="true" fit="true">
         <thead>
             <tr>
-				<th field="id" width="30">编号</th>
+				<th field="id" width="30" sortable="true">编号</th>
 				 <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>  
 				<th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
 				<th field="company_pid" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_pid">上级单位</th> 
@@ -2142,7 +2196,7 @@ var adm_user_edit = `
                         $('#tt').datagrid('reload');
                         $('#win').window('close');
                     } else {
-                        jq.messager.alert('错误', "操作失败!", "warning");
+                        jq.messager.alert('错误', data, "warning");
                     }
                 }
             });
@@ -2165,7 +2219,7 @@ var adm_user_edit = `
             <table cellpadding="5">
                 <tr>
                     <td>账号:</td>
-                    <td><input class="easyui-textbox" type="text" name="username" style="width:160px;" value="{{.m.username}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
+                    <td><input class="easyui-textbox" type="text" name="username" style="width:160px;" value="{{.uname}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
 				</tr>
 				{{if eq .is_sq "1"}}
 				<tr>
@@ -2222,7 +2276,7 @@ var adm_user_edit = `
 						$(function(){
 							$('#mch_id').combobox({
                                 onLoadSuccess: function () {
-								    $('#mch_id').combobox('select','{{.m.mch_id}}');
+								    //$('#mch_id').combobox('select','{{.m.mch_id}}');
 							    }
                             });							
 						})
@@ -2333,7 +2387,7 @@ var adm_user_edit = `
                 </tr>
                 <tr>
                     <td>密码:</td>
-                    <td><input class="easyui-textbox" type="text" name="password" style="width:160px;" value="{{.m.password}}" data-options="required:true"></input></td>
+                    <td><input class="easyui-textbox" type="text" name="password" style="width:160px;" value="{{.pwd}}" data-options="required:true"></input></td>
                 </tr>
 				<tr>
                     <td>角色:</td>
@@ -2797,6 +2851,14 @@ func (c *UserController) UserTypeCompany() {
 		//如果等级一样,只显示自己
 		if _usertype == strconv.Itoa(id) && c.GetSession("_username").(string) != "root" {
 			m["bindapi"] += " and id=" + c.GetSession("_company_id").(string)
+		} else {
+			var _mch_id = c.GetSession("_mch_id").(string)
+			//如果是管理员,展示自己级别及以下信息,不包括自己
+			var ids = ChildIds2(_mch_id, c.GetSession("_company_id").(string))
+			ids = strings.Replace(ids, ",,", ",", -1)
+			ids = strings.Replace(ids, ",,", ",", -1)
+			ids = strings.Replace(ids, ",,", ",", -1)
+			m["bindapi"] += " and id in(" + ids + ") "
 		}
 		var list = db.Query2(xdb, m["bindapi"])
 		fmt.Println("--------bindapi:", m["bindapi"])

@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -26,6 +27,8 @@ func (c *XApiController) ID() {
 	var companyid = c.GetSession("_company_id")
 	if companyid != nil {
 		t = companyid.(string)
+	} else {
+		t = c.GetString("_company_id")
 	}
 
 	for i := len(t); i < 5; i++ {
@@ -51,15 +54,58 @@ func (c *XApiController) NavListJson() {
 	c.ServeJSON()
 }
 
-//ListJson数据
+//ListJson数据-----移动端专用
 func (c *XApiController) ListJson() {
 
 	var code = c.GetString("code")
 	var tb = db.First("select * from tb_table where code=?", code)
-	if tb == nil {
+	if tb == nil || len(tb) < 1 {
 		c.Ctx.WriteString("")
 		return
 	}
+	//数据库连接配置
+	var con = db.First("select * from adm_conn where conn='" + tb["conn_str"] + "' limit 1")
+	if len(con) < 1 {
+		c.Ctx.WriteString("")
+		return
+	}
+
+	//级联传递值 jlfield jlval
+	var jlfield = c.GetString("jlfield")
+	var jlval = c.GetString("jlval")
+	if jlfield != "" && jlval != "" {
+		c.Data[jlfield] = jlval
+	}
+	//------------------------------------------------------------------
+	var _me = c.GetSession("_me")
+	c.Data["_me"] = _me
+	if c.GetSession("_uid") != nil {
+		c.Data["_uid"] = c.GetSession("_uid").(string)
+	}
+	if c.GetSession("_username") != nil {
+		c.Data["_username"] = c.GetSession("_username").(string)
+	}
+
+	if c.GetSession("_usertype") != nil {
+		c.Data["_usertype"] = c.GetSession("_usertype").(string)
+	}
+
+	if c.GetSession("_userlevel") != nil {
+		c.Data["_userlevel"] = c.GetSession("_userlevel").(string)
+	}
+
+	if c.GetSession("_company") != nil {
+		c.Data["_company"] = c.GetSession("_company").(string)
+	}
+
+	if c.GetSession("_company_id") != nil {
+		c.Data["_company_id"] = c.GetSession("_company_id").(string)
+	}
+
+	if c.GetSession("_company_pid") != nil {
+		c.Data["_company_pid"] = c.GetSession("_company_pid").(string)
+	}
+
 	//根据参数读取数据
 	var page, _ = c.GetInt("page", 1)
 	var pageSize, _ = c.GetInt("rows", 20)
@@ -151,43 +197,187 @@ func (c *XApiController) ListJson() {
 	if sort != "" && order != "" {
 		orderstr = " order by " + sort + " " + order
 	} else {
-		if tb["pri_key"] != "" {
-			orderstr = " order by " + tb["pri_key"] + " desc "
+		if tb["sort_key"] != "" {
+			orderstr = " order by " + tb["sort_key"]
 		}
 	}
 
 	//搜索资源,手机端修改字段别名
+
 	var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 ", tb["id"])
-	var fstr = ""
+
+	//取值并输出到模板
 	for _, v := range fs {
-		if fstr != "" {
-			fstr += ","
-		}
-		if v["view_list_place"] != "" {
-			fstr += " " + v["field_code"] + " as " + v["view_list_place"]
-		} else {
-			fstr += " " + v["field_code"]
+		if c.GetString(v["field_code"]) != "" {
+			c.Data[v["field_code"]] = c.GetString(v["field_code"])
 		}
 	}
-	if fstr == "" {
-		fstr = " * "
+
+	var fstr = ""
+	if strings.Contains(con["dbtype"], "mysql") {
+		var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 and (view_list_place !='' or view_list_isoptionid =1) order by view_list_place", tb["id"])
+		//图片
+		var fstr_tmp = ""
+		for _, v := range fs {
+			if v["view_list_place"] != "img" {
+				continue
+			}
+			if fstr_tmp != "" {
+				fstr_tmp += ","
+			}
+			fstr_tmp += v["field_code"]
+		}
+		if fstr_tmp != "" {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += "CONCAT(" + fstr_tmp + ") as img"
+		}
+		//标题
+		fstr_tmp = ""
+		for _, v := range fs {
+			if v["view_list_place"] != "title" {
+				continue
+			}
+			if fstr_tmp != "" {
+				fstr_tmp += ","
+			}
+			fstr_tmp += v["field_code"]
+		}
+		if fstr_tmp != "" {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += "CONCAT(" + fstr_tmp + ") as title"
+		}
+		//描述
+		fstr_tmp = ""
+		for _, v := range fs {
+			if v["view_list_place"] != "desc" {
+				continue
+			}
+			if fstr_tmp != "" {
+				fstr_tmp += ","
+			}
+			fstr_tmp += " '" + v["field_name"] + ":'," + v["field_code"] + ",';'"
+		}
+		if fstr_tmp != "" {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += "CONCAT(" + fstr_tmp + ") as `desc`"
+		}
+		//右角标
+		fstr_tmp = ""
+		for _, v := range fs {
+			if v["view_list_place"] != "rss" {
+				continue
+			}
+			if fstr_tmp != "" {
+				fstr_tmp += ","
+			}
+			fstr_tmp += v["field_code"]
+		}
+		if fstr_tmp != "" {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += "CONCAT(" + fstr_tmp + ") as rss"
+		}
+		// //选项ID,此ID保存到前端本地
+		// fstr_tmp = ""
+		// for _, v := range fs {
+		// 	if v["view_list_place"] != "chooseid" {
+		// 		continue
+		// 	}
+		// 	if fstr_tmp != "" {
+		// 		fstr_tmp += ","
+		// 	}
+		// 	fstr_tmp += v["field_code"]
+		// }
+		// if fstr_tmp != "" {
+		// 	if fstr != "" {
+		// 		fstr += ","
+		// 	}
+		// 	fstr += "CONCAT(" + fstr_tmp + ") as chooseid"
+		// }
+
+		//选项ID,此ID保存到前端本地
+		fstr_tmp = ""
+		for _, v := range fs {
+			//fmt.Println(".......................view_list_isoptionid.............A", v["view_list_isoptionid"])
+			if v["view_list_isoptionid"] != "1" {
+				continue
+			}
+			//fmt.Println(".......................view_list_isoptionid.............B")
+			if fstr_tmp != "" {
+				fstr_tmp += ","
+			}
+			fstr_tmp += v["field_code"]
+		}
+		if fstr_tmp != "" {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += "CONCAT(" + fstr_tmp + ") as _optionid"
+		}
+
+		if fstr == "" {
+			fstr = " * "
+		} else {
+			fstr = " id," + fstr
+		}
+	} else {
+		for _, v := range fs {
+			if fstr != "" {
+				fstr += ","
+			}
+			if v["view_list_place"] != "" {
+				fstr += " " + v["field_code"] + " as `" + v["view_list_place"] + "` "
+			} else {
+				fstr += " " + v["field_code"]
+			}
+		}
+		if fstr == "" {
+			fstr = " * "
+		}
 	}
 
 	var xx = db.NewDb(tb["conn_str"])
 	var sql = "select " + fstr + " from " + tb["table"] + " " + where
 	if data_type == "2" { //如果是语句的话
-		sql = "select " + fstr + " from (" + tb["table"] + ") as" + data_table + " " + where
+		sql = "select " + fstr + " from (" + tb["table"] + ") as " + data_table + " " + where
 	}
 
+	//进行sql模板替换操作
+	var tpl = template.New("")
+	tpl.Parse(sql)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e != nil {
+		fmt.Println("xapi template sql 执行错误A:", e.Error())
+		c.Ctx.WriteString("{}")
+		return
+	}
+	sql = buf.String()
+
+	tpl = template.New("")
+	tpl.Parse(where)
+	e = tpl.Execute(&buf, c.Data)
+	if e != nil {
+		fmt.Println("xapi template sql 执行错误B:", e.Error())
+		c.Ctx.WriteString("{}")
+		return
+	}
+	where = buf.String()
 	//判断数据库类型
-	var con = db.First("select * from adm_conn where conn='" + tb["conn_str"] + "' limit 1")
 	if strings.Contains(con["dbtype"], "mssql") {
 		var rst = db.Pager2MsSql(xx, page, pageSize, tb["table"], sql, where, orderstr, sql+orderstr)
 		c.Data["json"] = rst
 	} else {
 		fmt.Println(sql + orderstr)
 		var rst = db.Pager2(xx, page, pageSize, sql+orderstr)
-		rst.Extra = tb["title"] //功能标题
+		rst.Extra = tb["title_list"] //功能标题
 		if totalField != "" {
 			var heji = db.Query2(xx, "select sum("+totalField+") as "+totalField+" from "+tb["table"]+" "+where+" "+orderstr)
 			if len(heji) > 0 {
@@ -198,6 +388,18 @@ func (c *XApiController) ListJson() {
 
 	}
 
+	c.ServeJSON()
+}
+
+//获取标题信息
+func (c *XApiController) TitleJson() {
+	var code = c.GetString("code")
+	var tb = db.First("select id,code,title,title_list,title_edit from tb_table where code=?", code)
+	if tb == nil {
+		c.Ctx.WriteString("{}")
+		return
+	}
+	c.Data["json"] = tb
 	c.ServeJSON()
 }
 
@@ -212,15 +414,45 @@ func (c *XApiController) FieldJson() {
 	var fields = db.Query(`select 
 	id,tbid,tbcode,field_name,field_code,field_type,field_length,
 	field_defval,field_prikey,form_type,form_length,form_sort,form_tip,
-	form_value,form_required,view_list ,view_form ,is_sort,is_search,
-	is_total ,is_editable,is_readonly ,memo,state
-	from tb_field where tbid=? and  view_form=1 `, tb["id"])
+	form_value,form_required,view_list,view_list_module,view_list_islink,is_hide,view_form ,is_sort,is_search,
+	is_total ,is_editable,is_readonly,form_cascade ,memo,state
+	from tb_field where tbid=? and  view_form=1 order by form_sort`, tb["id"])
 
 	//获取值
 	var data_type = tb["data_type"] //数据类型  0表 1视图  2语句
 	var data_table = ""             //如果是语句则需要别名
 	if data_type == "2" {
 		data_table = "_tb"
+	}
+
+	//------------------------------------------------------------------
+	var _me = c.GetSession("_me")
+	c.Data["_me"] = _me
+	if c.GetSession("_uid") != nil {
+		c.Data["_uid"] = c.GetSession("_uid").(string)
+	}
+	if c.GetSession("_username") != nil {
+		c.Data["_username"] = c.GetSession("_username").(string)
+	}
+
+	if c.GetSession("_usertype") != nil {
+		c.Data["_usertype"] = c.GetSession("_usertype").(string)
+	}
+
+	if c.GetSession("_userlevel") != nil {
+		c.Data["_userlevel"] = c.GetSession("_userlevel").(string)
+	}
+
+	if c.GetSession("_company") != nil {
+		c.Data["_company"] = c.GetSession("_company").(string)
+	}
+
+	if c.GetSession("_company_id") != nil {
+		c.Data["_company_id"] = c.GetSession("_company_id").(string)
+	}
+
+	if c.GetSession("_company_pid") != nil {
+		c.Data["_company_pid"] = c.GetSession("_company_pid").(string)
 	}
 
 	var id, _ = c.GetInt("id", 0)
@@ -234,6 +466,40 @@ func (c *XApiController) FieldJson() {
 	if len(m) > 0 {
 		for _, row := range fields {
 			row["_value"] = m[row["field_code"]]
+		}
+	} else {
+		//如果纪录不存在则使用默认值
+		var tpl = template.New("")
+
+		for _, row := range fields {
+			var defval = row["field_defval"]
+			if defval != "" {
+				tpl = template.New("")
+				tpl.Parse(defval)
+				var buf bytes.Buffer
+				var e = tpl.Execute(&buf, c.Data)
+				if e == nil {
+					defval = buf.String()
+				}
+				//如果是网址则调用获取网页内容
+				if defval != "" && len(defval) > 2 && (strings.HasPrefix(defval, "/") || strings.HasPrefix(defval, "http")) {
+					var url = "http://" + c.Ctx.Input.Domain()
+					if strings.HasPrefix(defval, "/") {
+						if strconv.Itoa(c.Ctx.Input.Port()) != "80" {
+							url = url + ":" + strconv.Itoa(c.Ctx.Input.Port())
+						}
+						url += defval
+					} else if strings.HasPrefix(defval, "http") {
+						url = defval
+					}
+					rst, e := HttpGet(url)
+					if e == nil {
+						defval = rst
+					}
+				}
+				row["_value"] = defval
+			}
+			defval = ""
 		}
 	}
 
@@ -276,37 +542,71 @@ func (c *XApiController) ItemJson() {
 
 	var f = db.First("select * from tb_field where id=?", id)
 	if len(f) < 1 {
-		c.Ctx.WriteString("{}")
+		c.Ctx.WriteString("[]")
 		return
+	}
+
+	//------------------------------------------------------------------
+	var _me = c.GetSession("_me")
+	c.Data["_me"] = _me
+	if c.GetSession("_uid") != nil {
+		c.Data["_uid"] = c.GetSession("_uid").(string)
+	}
+	if c.GetSession("_username") != nil {
+		c.Data["_username"] = c.GetSession("_username").(string)
+	}
+
+	if c.GetSession("_usertype") != nil {
+		c.Data["_usertype"] = c.GetSession("_usertype").(string)
+	}
+
+	if c.GetSession("_userlevel") != nil {
+		c.Data["_userlevel"] = c.GetSession("_userlevel").(string)
+	}
+
+	if c.GetSession("_company") != nil {
+		c.Data["_company"] = c.GetSession("_company").(string)
+	}
+
+	if c.GetSession("_company_id") != nil {
+		c.Data["_company_id"] = c.GetSession("_company_id").(string)
+	}
+
+	if c.GetSession("_company_pid") != nil {
+		c.Data["_company_pid"] = c.GetSession("_company_pid").(string)
 	}
 
 	//获取表信息
 	var tb = db.First("select * from tb_table where id=?", f["tbid"])
 	if len(tb) < 1 {
-		c.Ctx.WriteString("{}")
+		c.Ctx.WriteString("[]")
 		return
 	}
 	var sql = f["form_value"]
 	if sql == "" {
-		c.Ctx.WriteString("{}")
+		c.Ctx.WriteString("[]")
 		return
+	}
+
+	var tpl = template.New("")
+	tpl.Parse(sql)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e == nil {
+		sql = buf.String()
 	}
 
 	var jsonstr = ""
 	if strings.Contains(f["form_value"], "select") == true {
 		var xx = db.NewDb(tb["conn_str"])
+
 		var list = db.Query2(xx, sql)
-		// c.Data["json"] = list
-		// c.ServeJSON()
-		//jsonstr = `[{"id":"","val":"请选择..."}`
-		jsonstr = `[`
-		for kk, vv := range list {
-			if kk > 0 {
-				jsonstr += ","
-			}
-			jsonstr += `{"id":"` + vv["id"] + `","val":"` + vv["val"] + `"}`
+		result, err := json.MarshalIndent(list, "", "	")
+		if err != nil {
+			c.Ctx.WriteString("[]")
+			return
 		}
-		jsonstr += `]`
+		jsonstr = string(result)
 	} else {
 		var ls = strings.Split(f["form_value"], ";")
 		if len(ls) > 0 {
@@ -350,6 +650,43 @@ func (c *XApiController) EditPost() {
 		c.Ctx.WriteString("code data not found")
 		return
 	}
+
+	var xx = db.NewDb(tb["conn_str"])
+	//纪录唯一性检查
+	var uniqlist = db.Query("select * from tb_field where tbid=? and is_unique=1", tb["id"])
+	if len(uniqlist) > 0 {
+		var uniwhere = ""
+		var unifname = ""
+		for _, v := range uniqlist {
+			var fv = c.GetString(v["field_code"])
+			if fv != "" {
+				if uniwhere != "" {
+					uniwhere += " and "
+				}
+				uniwhere += v["field_code"] + "='" + c.GetString(v["field_code"]) + "' "
+
+				if unifname != "" {
+					unifname += ","
+				}
+				unifname += v["field_code"]
+			}
+		}
+		if id > 0 {
+			//var row = db.Query2(xx, `select * from `+tb["table"]+` where id !=? and `+v["field_code"]+`=?`, id, c.GetString(v["field_code"]))
+			var row = db.Query2(xx, `select * from `+tb["table"]+" where "+uniwhere+` and id !=? `, id)
+			if len(row) > 0 {
+				c.Ctx.WriteString(unifname + "值不能重复!")
+				return
+			}
+		} else {
+			//var row = db.Query2(xx, `select * from `+tb["table"]+` where   `+v["field_code"]+`=?`, c.GetString(v["field_code"]))
+			var row = db.Query2(xx, `select * from `+tb["table"]+" where "+uniwhere+``)
+			if len(row) > 0 {
+				c.Ctx.WriteString(unifname + "值不能重复!")
+				return
+			}
+		}
+	}
 	var log = "" //log日志信息
 	//
 	var fields = db.Query("select * from tb_field where tbid=? and field_code!='id' and view_form=1 and form_type!='标签框'", tb["id"])
@@ -362,6 +699,24 @@ func (c *XApiController) EditPost() {
 			}
 			var val = c.GetString(v["field_code"])
 			val = strings.Replace(val, "'", "''", -1) //字符替换
+
+			//检查是否必填项
+			if v["form_required"] == "1" && val == "" {
+				c.Ctx.WriteString(v["field_name"] + "不能为空")
+				return
+			}
+			//字段默认值
+			if val == "" {
+				val = v["field_defval"]
+			}
+			//默认值替换---------------------------------------------
+			//默认时间
+			if val == "CURRENT_TIME" {
+				val = time.Now().Format("2006-01-02 15:04:05")
+			}
+			if val == "CURRENT_DATE" {
+				val = time.Now().Format("2006-01-02")
+			}
 
 			if v["form_type"] == "开关按钮" {
 				if val == "on" {
@@ -420,6 +775,25 @@ func (c *XApiController) EditPost() {
 			var val = c.GetString(v["field_code"])
 			val = strings.Replace(val, "'", "''", -1) //字符替换
 
+			//检查是否必填项
+			if v["form_required"] == "1" && val == "" {
+				c.Ctx.WriteString(v["field_name"] + "不能为空")
+				return
+			}
+			//字段默认值
+			if val == "" {
+				val = v["field_defval"]
+			}
+
+			//默认值替换---------------------------------------------
+			//默认时间
+			if val == "CURRENT_TIME" {
+				val = time.Now().Format("2006-01-02 15:04:05")
+			}
+			if val == "CURRENT_DATE" {
+				val = time.Now().Format("2006-01-02")
+			}
+
 			if v["form_type"] == "开关按钮" {
 				if val == "on" {
 					val = "1"
@@ -446,11 +820,18 @@ func (c *XApiController) EditPost() {
 
 	//fmt.Println("sql:", sql)
 
-	var xx = db.NewDb(tb["conn_str"])
-	var i = db.Exec2(xx, sql)
+	var i int64 = 0 //db.Insert2(xx, sql, tb["table"]) //mysql msssql 可以返回主键
+	if id > 0 {
+		i = db.Exec2(xx, sql)
+		c.Data["id"] = id
+	} else {
+		i = db.Insert2(xx, sql, tb["table"]) //mysql msssql 可以返回主键
+		c.Data["id"] = i
+	}
+	fmt.Println("移动端返回主键:", c.Data["id"])
 	if i > 0 {
 		//保存成功,准备检查额外需执行代码
-		var exlist = db.Query("select * from tb_table_ex where extype='sql' and expage='info' and explace='AFTER' and tbid=? and state=1", tb["id"])
+		var exlist = db.Query("select * from tb_table_ex where extype like 'sql%' and expage='info' and explace='AFTER' and tbid=? and state=1", tb["id"])
 		for _, v := range exlist {
 			var tpl = template.New("")
 			if v["excontent"] == "" {
@@ -464,7 +845,23 @@ func (c *XApiController) EditPost() {
 				continue
 			}
 			var p = buf.String()
-			db.Exec2(xx, p)
+			//普通执行语句
+			if v["extype"] == "sql" {
+				c.Data[v["code"]] = db.Exec2(xx, p)
+			}
+			if v["extype"] == "sql_model" {
+				c.Data[v["code"]] = db.First2(xx, p)
+			}
+			if v["extype"] == "sql_list" {
+				c.Data[v["code"]] = db.Query2(xx, p)
+			}
+			if v["extype"] == "sql_insert" {
+				c.Data[v["code"]] = db.Insert2(xx, p, v["title"]) //临时方案,后期增加单独字段 2019-05-03
+			}
+			if v["extype"] == "sql_execute" {
+				fmt.Println("额外sql_execute:", p)
+				c.Data[v["code"]] = db.Exec2(xx, p)
+			}
 		}
 
 		c.Ctx.WriteString("1")
@@ -543,27 +940,28 @@ func (c *XApiController) ProvJson() {
 func (c *XApiController) UserTypeJson() {
 	var where = ""
 	var level, _ = c.GetInt("level", 0)
-	var ignore = c.GetString("ignore")
+	var lt = c.GetString("lt")
+	var gt = c.GetString("gt")
+
+	var lte = c.GetString("lte")
+	var gte = c.GetString("gte")
 
 	where = "where level>=" + strconv.Itoa(level)
+	if gt != "" || lt != "" {
+		where = "where 1=1 "
+	}
 	//读取 > >= < <= 参数
-	if ignore == "" {
-		var rt, _ = c.GetInt("rt", 0)
-		if rt > 0 {
-			where += " and level>" + strconv.Itoa(rt)
-		}
-		var rte, _ = c.GetInt("rte", 0)
-		if rte > 0 {
-			where += " and level>=" + strconv.Itoa(rte)
-		}
-		var lt, _ = c.GetInt("lt", 0)
-		if lt > 0 {
-			where += " and level<" + strconv.Itoa(lt)
-		}
-		var lte, _ = c.GetInt("lte", 0)
-		if lte > 0 {
-			where += " and level<=" + strconv.Itoa(lte)
-		}
+	if gt != "" {
+		where += " and level >=" + gt
+	}
+	if lt != "" {
+		where += " and level <=" + lt
+	}
+	if gte != "" {
+		where += " and level >" + gte
+	}
+	if lte != "" {
+		where += " and level <" + lte
 	}
 
 	if where == "" {
@@ -631,4 +1029,94 @@ func (c *XApiController) RoleHtmlList() {
 
 	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
 	c.Ctx.Output.Body([]byte(rst))
+}
+
+//检查是否已登录
+func (c *XApiController) IsLogin() {
+	var rst = ``
+	var _uid = c.GetSession("_uid")
+	if _uid == nil {
+		rst = `{
+			"code":104,
+			"msg":"未登录或会话超时",
+			"extra":"0",
+			"result":[]
+		}`
+
+		c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+		c.Ctx.Output.Body([]byte(rst))
+	}
+	var m = db.First("select id,mch_id,usertype,username,mobile,openid,realname,headimg,company,company_id,company_pid,is_manager,state from adm_user where id=?", _uid)
+	result, err := json.MarshalIndent(m, "", "    ")
+	if err != nil {
+		rst = `{
+			"code":104,
+			"msg":"读取失败,请稍后重试",
+			"extra":"0",
+			"result":[]
+		}`
+	} else {
+		rst = `{
+			"code":100,
+			"msg":"已登录",
+			"extra":"0",
+			"result":[` + string(result) + `]
+		}`
+	}
+	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+}
+
+//Login 登录系统  0参数不全或用户名密码错误  1登录成功  2账号异常
+func (c *XApiController) Login() {
+	var username = c.GetString("username")
+	var userpwd = c.GetString("userpwd")
+	if username == "" || userpwd == "" {
+		c.Ctx.WriteString("0")
+		return
+	}
+	fmt.Println("db", db.X)
+	var u = db.First("select * from adm_user where username=? and password=?", username, userpwd)
+	if u == nil {
+		c.Ctx.WriteString("0")
+		return
+	} else {
+		if u["state"] == "1" {
+			c.SetSession("_me", u)
+			c.SetSession("_uid", u["id"])
+			c.SetSession("_mch_id", u["mch_id"])
+			c.SetSession("_pid", u["pid"])
+			c.SetSession("_pids", u["pids"])
+			c.SetSession("_roles", u["roles"])
+			c.SetSession("_username", u["username"])
+			c.SetSession("_usertype", u["usertype"])
+			c.SetSession("_sproot", u["sproot"])
+			c.SetSession("_is_manager", u["is_manager"])
+			c.SetSession("_company", u["company"])
+			c.SetSession("_company_id", u["company_id"])
+			c.SetSession("_company_pid", u["company_pid"])
+
+			if u["username"] == "root" {
+				c.SetSession("_sproot", "1")
+			}
+			//用户级别
+			var ut = db.First("select * from adm_usertype where level=?", u["usertype"])
+			if len(ut) > 0 {
+				c.SetSession("_userlevel", ut["level"])
+			} else {
+				c.Ctx.WriteString("0")
+				return
+			}
+			c.SetSession("_logintime", u["logintime"])
+			c.SetSession("_loginip", u["loginip"])
+
+			db.Exec("update adm_user set logintime=?,loginip=? where id=?", time.Now().Format("2006-01-02 15:04:05"), c.Ctx.Request.RemoteAddr, u["id"])
+
+			c.Ctx.WriteString(u["id"])
+			return
+		} else {
+			c.Ctx.WriteString("2")
+			return
+		}
+	}
 }

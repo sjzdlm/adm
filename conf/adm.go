@@ -45,6 +45,15 @@ func InitRouter() {
 	beego.Router("/mp/:app", &controllers.MPController{}, "get,post:Get")
 	beego.Router("/mp/vue", &controllers.MPController{}, "get,post:Get")
 	beego.Router("/mp/css", &controllers.MPController{}, "get,post:Get")
+
+	//单页应用
+	beego.Router("/app", &controllers.AppController{}, "get,post:Get")
+	beego.AutoRouter(&controllers.AppController{})
+	beego.Router("/app/:app/:page", &controllers.AppController{}, "get,post:Get")
+	beego.Router("/app/:app", &controllers.AppController{}, "get,post:Get")
+	beego.Router("/app/vue", &controllers.AppController{}, "get,post:Get")
+	beego.Router("/app/css", &controllers.AppController{}, "get,post:Get")
+
 	//二维码
 	beego.Router("/qrcode", &controllers.QrcodeController{})
 	beego.AutoRouter(&controllers.QrcodeController{})
@@ -135,6 +144,7 @@ func InitConfig() {
 	beego.BConfig.WebConfig.Session.SessionProvider = "file"
 	os.MkdirAll("tmp", 0755)
 	beego.BConfig.WebConfig.Session.SessionProviderConfig = "./tmp"
+	beego.BConfig.EnableGzip = true //启用压缩
 
 	//日志不输出到终端
 	//beego.BeeLogger.DelLogger("console")
@@ -221,6 +231,9 @@ func funcCookieSet(ctx *context.Context, str string, val string) string {
 
 //获取session值
 func funcSessionGet(ctx *context.Context, str string) string {
+	if ctx.Input.Session(str) == nil {
+		return ""
+	}
 	var rst = ctx.Input.Session(str).(string)
 	return rst
 }
