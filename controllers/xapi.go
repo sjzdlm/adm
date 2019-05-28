@@ -136,7 +136,7 @@ func (c *XApiController) ListJson() {
 			} else {
 				if qtxt != "" {
 					if v["form_type"] != "文本框" {
-						where += v["field_code"] + ` like '` + qtxt + `' `
+						where += v["field_code"] + ` like '%` + qtxt + `%' `
 					} else {
 						where += v["field_code"] + ` like '%` + qtxt + `%' `
 					}
@@ -388,6 +388,18 @@ func (c *XApiController) ListJson() {
 
 	}
 
+	c.ServeJSON()
+}
+
+//获取模块信息
+func (c *XApiController) TbJson() {
+	var code = c.GetString("code")
+	var tb = db.First("select id,code,`table`,is_create,is_search,is_edit,is_del from tb_table where code=?", code)
+	if tb == nil {
+		c.Ctx.WriteString("{}")
+		return
+	}
+	c.Data["json"] = tb
 	c.ServeJSON()
 }
 

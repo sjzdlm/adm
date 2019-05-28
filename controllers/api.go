@@ -79,6 +79,36 @@ func (c *ApiController) Get() {
 		data["_username"] = _username
 		data["_usertype"] = _usertype
 
+		//------------------------------------------------------------------
+		var _me = c.GetSession("_me")
+		c.Data["_me"] = _me
+		if c.GetSession("_uid") != nil {
+			c.Data["_uid"] = c.GetSession("_uid").(string)
+		}
+		if c.GetSession("_username") != nil {
+			c.Data["_username"] = c.GetSession("_username").(string)
+		}
+
+		if c.GetSession("_usertype") != nil {
+			c.Data["_usertype"] = c.GetSession("_usertype").(string)
+		}
+
+		if c.GetSession("_userlevel") != nil {
+			c.Data["_userlevel"] = c.GetSession("_userlevel").(string)
+		}
+
+		if c.GetSession("_company") != nil {
+			c.Data["_company"] = c.GetSession("_company").(string)
+		}
+
+		if c.GetSession("_company_id") != nil {
+			c.Data["_company_id"] = c.GetSession("_company_id").(string)
+		}
+
+		if c.GetSession("_company_pid") != nil {
+			c.Data["_company_pid"] = c.GetSession("_company_pid").(string)
+		}
+
 		//默认所有参数的初始化
 		var _ = c.GetString("id") //初始化
 		var _m = c.Ctx.Request.Form
@@ -272,6 +302,7 @@ func (c *ApiController) Get() {
 						return
 					}
 					if m["conn_str"] != "" {
+						fmt.Println("sqlexec:", buf.String())
 						var p = db.Exec2(XX, buf.String())
 						data[v["param_name"]] = p
 						if v["param_name"] == "extra" {

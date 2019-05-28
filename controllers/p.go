@@ -26,6 +26,9 @@ func (c *PController) Get() {
 	}
 	var rpt = c.Ctx.Input.Param(":page")
 	if rpt == "" {
+		rpt = "index"
+	}
+	if rpt == "" {
 		rst = "没有找到页面信息."
 		c.Ctx.WriteString(rst)
 		return
@@ -33,8 +36,11 @@ func (c *PController) Get() {
 	//查找页面信息
 	var m = db.FirstOrNil("select * from page_list where module=? and  code=?", module, rpt)
 	if m == nil {
-		rst = "没有找到页面信息."
-		c.Ctx.WriteString(rst)
+		// rst = "没有找到页面信息."
+		// c.Ctx.WriteString(rst)
+		rst = notfound
+		c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+		c.Ctx.Output.Body([]byte(rst))
 		return
 	} else {
 		//定义参数map
@@ -52,7 +58,7 @@ func (c *PController) Get() {
 		data["_usertype"] = _usertype
 
 		//从数据库读取报表的参数,并从客户端获取参数值
-		var params = db.Query("select * from page_param where page_id=? and state=1", m["id"])
+		var params = db.Query("select * from page_param where page_id=? and state=1 order by orders ", m["id"])
 		//fmt.Println("params:",params)
 
 		//普通参数接收
@@ -226,10 +232,39 @@ func (c *PController) Get() {
 	}
 
 	//--------------------------------------------------------------------
-	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
 	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
 	c.Ctx.Output.Body([]byte(rst))
-
-	c.Ctx.WriteString(rst)
-
 }
+
+var notfound = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"> 
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>404没有找到相关信息</title>
+<script src="https://cdn.bootcss.com/jquery/1.12.2/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/jquery.form/3.24/jquery.form.min.js"></script>
+<link href="/js/jqweui/lib/weui.min.css" rel="stylesheet"> 
+<link href="https://cdn.bootcss.com/jquery-weui/1.2.1/css/jquery-weui.min.css" rel="stylesheet">
+<script src="https://cdn.bootcss.com/jquery-weui/1.2.1/js/jquery-weui.min.js"></script>
+</head>
+<body>
+    <div class="weui-msg">
+      <div class="weui-msg__icon-area"><i class="weui-icon-warn weui-icon_msg"></i></div>
+      <div class="weui-msg__text-area">
+        <h2 class="weui-msg__title">没有找到相关信息</h2>
+        <p class="weui-msg__desc"></p>
+      </div>
+      <div class="weui-msg__extra-area">
+        <div class="weui-footer">
+          <p class="weui-footer__links">
+             
+          </p>
+          <p class="weui-footer__text">Copyright © 2008-2019 sjzapps.com</p>
+        </div>
+      </div>
+    </div>
+</body>
+</html>
+`

@@ -34,6 +34,7 @@ func InitRouter() {
 	//p动态页面
 	beego.Router("/p", &controllers.PController{}, "get,post:Get")
 	beego.AutoRouter(&controllers.PController{})
+	beego.Router("/p/:module", &controllers.PController{}, "get,post:Get")
 	beego.Router("/p/:module/:page", &controllers.PController{}, "get,post:Get")
 	//mp动态页面
 	beego.Router("/mp", &controllers.MPController{}, "get,post:Get")
