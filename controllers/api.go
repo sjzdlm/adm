@@ -254,6 +254,7 @@ func (c *ApiController) Get() {
 						c.Ctx.Output.Body([]byte(rst))
 						return
 					}
+					fmt.Println("..................api model:", buf.String())
 					if m["conn_str"] != "" {
 						var p = db.First2(XX, buf.String())
 						if p != nil {
@@ -274,6 +275,7 @@ func (c *ApiController) Get() {
 						c.Ctx.Output.Body([]byte(rst))
 						return
 					}
+					fmt.Println("..................api list:", buf.String())
 					if m["conn_str"] != "" {
 						if strings.Contains(buf.String(), "limit 1") || strings.Contains(buf.String(), "top 1") {
 							var p = db.First2(XX, buf.String())
@@ -281,10 +283,20 @@ func (c *ApiController) Get() {
 								data[v["param_name"]] = p
 							}
 						} else {
-							var p = db.Query2(XX, buf.String())
-							if p != nil {
-								data[v["param_name"]] = p
+							var _page, _ = c.GetInt("_page", 0)
+							var _pagesize, _ = c.GetInt("_pagesize", 20)
+							if _page > 0 {
+								var rst1 = db.Pager2(XX, _page, _pagesize, buf.String())
+								c.Data["json"] = rst1
+								c.ServeJSON()
+								return
+							} else {
+								var p = db.Query2(XX, buf.String())
+								if p != nil {
+									data[v["param_name"]] = p
+								}
 							}
+
 						}
 
 					}

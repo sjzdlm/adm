@@ -33,6 +33,9 @@ func (c *PController) Get() {
 		c.Ctx.WriteString(rst)
 		return
 	}
+	//定义参数map
+	//var data map[string]interface{} = map[string]interface{}{}
+	var data = c.Data
 	//查找页面信息
 	var m = db.FirstOrNil("select * from page_list where module=? and  code=?", module, rpt)
 	if m == nil {
@@ -43,8 +46,7 @@ func (c *PController) Get() {
 		c.Ctx.Output.Body([]byte(rst))
 		return
 	} else {
-		//定义参数map
-		var data map[string]interface{} = map[string]interface{}{}
+
 		data["__date"] = time.Now().Format("2006-01-02")
 		data["__time"] = time.Now().Format("2006-01-02 15:04:05")
 		//填充登录参数
@@ -150,11 +152,16 @@ func (c *PController) Get() {
 							data[v["param_name"]] = ""
 						}
 					} else {
-						var p = db.Query2(XX, sql)
-						if p != nil {
+						var _page, _ = c.GetInt("_page", 0)
+						var _pagesize, _ = c.GetInt("_pagesize", 20)
+						if _page > 0 {
+							var p = db.Pager2(XX, _page, _pagesize, sql)
 							data[v["param_name"]] = p
 						} else {
-							data[v["param_name"]] = ""
+							var p = db.Query2(XX, sql)
+							if p != nil {
+								data[v["param_name"]] = p
+							}
 						}
 					}
 
@@ -207,33 +214,38 @@ func (c *PController) Get() {
 				}
 			}
 		}
-
-		var tpl = NewTpl()
 		data["ctx"] = c.Ctx //data中需要有ctx参数
 
-		tpl, er := tpl.Parse(m["template"])
-		if er != nil {
-			rst = ApiResult("500", "tpl.Parse代码解析错误", strings.Replace(er.Error(), `"`, " ", -1), "")
-			c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
-			c.Ctx.Output.Body([]byte(rst))
-			return
-		}
-		var buf bytes.Buffer
-		var e = tpl.Execute(&buf, data)
+		//如果没有填写模板文件,则使用模板字符串
+		if m["template_file"] == "" {
+			var tpl = NewTpl()
+			tpl, er := tpl.Parse(m["template"])
+			if er != nil {
+				rst = ApiResult("500", "tpl.Parse代码解析错误", strings.Replace(er.Error(), `"`, " ", -1), "")
+				c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+				c.Ctx.Output.Body([]byte(rst))
+				return
+			}
+			var buf bytes.Buffer
+			var e = tpl.Execute(&buf, data)
 
-		if e != nil {
-			rst = ApiResult("500", "tpl.Execute模板解析错误", strings.Replace(e.Error(), `"`, " ", -1), "")
-			c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
-			c.Ctx.Output.Body([]byte(rst))
-			return
+			if e != nil {
+				rst = ApiResult("500", "tpl.Execute模板解析错误", strings.Replace(e.Error(), `"`, " ", -1), "")
+				c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+				c.Ctx.Output.Body([]byte(rst))
+				return
+			}
+			rst = buf.String()
 		}
-
-		rst = buf.String()
 	}
 
 	//--------------------------------------------------------------------
-	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
-	c.Ctx.Output.Body([]byte(rst))
+	if m["template_file"] == "" {
+		c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+		c.Ctx.Output.Body([]byte(rst))
+	} else {
+		c.TplName = m["template_file"]
+	}
 }
 
 var notfound = `
