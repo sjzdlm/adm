@@ -3,6 +3,7 @@ package controllers
 import (
 	"image/jpeg"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/image/draw"
@@ -53,6 +54,54 @@ func HttpGet(url string) (string, error) {
 	defer resp.Body.Close()
 
 	return string(data), err
+}
+
+//-------------------------------------------------------------------------------
+//调用一个网址
+func funcHttpGet(urlstr string) string {
+	var rst, _ = HttpGet(urlstr)
+	return rst
+}
+
+//转小写
+func funcLower(str string) string {
+	return strings.ToLower(str)
+}
+
+//转大写
+func funcUpper(str string) string {
+	return strings.ToUpper(str)
+}
+
+//将&gt;&lt;转义回来
+func funcUnEscape(str string) string {
+	fmt.Println("替换前:", str)
+	var str1 = strings.Replace(str, "&lt;", "<", -1)
+	fmt.Println("替换后1:", str1)
+	var str2 = strings.Replace(str1, "&gt;", ">", -1)
+	fmt.Println("替换后2:", str2)
+	return str2
+}
+
+//根据取余数判断是否输出换行
+func funcBR(i int, k int) string {
+	if i%k > 0 {
+		return "<br/>"
+	}
+	return ""
+}
+
+//取余并返回
+func funcMod(i int, k int) int {
+	return i % k
+}
+
+//根据key从map获取值
+func funcMap(key string, val map[string]string) string {
+	//fmt.Println("funcMap-val:",val)
+	//fmt.Println("funcMap:",key,val[key])
+	key = strings.ToLower(key) //转小写
+	return val[key]
 }
 
 ///Vue组件脚本

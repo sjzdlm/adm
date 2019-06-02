@@ -219,6 +219,15 @@ func (c *PController) Get() {
 		//如果没有填写模板文件,则使用模板字符串
 		if m["template_file"] == "" {
 			var tpl = NewTpl()
+
+			//添加自定义函数
+			tpl.Funcs(template.FuncMap{"str2html": beego.Str2html})
+			tpl.Funcs(template.FuncMap{"funcLower": funcLower})
+			tpl.Funcs(template.FuncMap{"funcUpper": funcUpper})
+			tpl.Funcs(template.FuncMap{"funcBR": funcBR})
+			tpl.Funcs(template.FuncMap{"funcMod": funcMod})
+			tpl.Funcs(template.FuncMap{"funcMap": funcMap})
+
 			tpl, er := tpl.Parse(m["template"])
 			if er != nil {
 				rst = ApiResult("500", "tpl.Parse代码解析错误", strings.Replace(er.Error(), `"`, " ", -1), "")
