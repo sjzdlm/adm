@@ -1248,3 +1248,22 @@ func (c *XApiController) Login() {
 		}
 	}
 }
+
+//Login 登录系统  0参数不全或用户名密码错误  1登录成功  2账号异常
+func (c *XApiController) LogOut() {
+	c.DelSession("_me")
+	c.DelSession("_uid")
+	c.DelSession("_mch_id")
+	c.DelSession("_pid")
+	c.DelSession("_pids")
+	c.DelSession("_roles")
+	c.DelSession("_username")
+	c.DelSession("_usertype")
+	c.DelSession("_sproot")
+	c.DelSession("_is_manager")
+	c.DelSession("_company")
+	c.DelSession("_company_id")
+	c.DelSession("_company_pid")
+
+	c.Ctx.WriteString("1")
+}
