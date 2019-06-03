@@ -6,10 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"image"
+	"image/png"
 	"io/ioutil"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/image/draw"
+
+	"github.com/golang/freetype"
 
 	"github.com/astaxie/beego"
 	"github.com/sjzdlm/db"
@@ -898,8 +906,116 @@ func (c *XApiController) UpBase64() {
 		fmt.Println("er:", er.Error())
 		return
 	}
-	var fn = fmt.Sprintf("/upload/%d.jpg", time.Now().UnixNano()/1e6)
-	err := ioutil.WriteFile(path+"/static"+fn, ddd, 0666) //buffer输出到jpg文件中（不做处理，直接写到文件）
+
+	//文件默认保存路径
+	var savePath = "/upload/" + time.Now().Format("2006-01") + "/"
+	if c.GetSession("_uid") != nil {
+		savePath += c.GetSession("_uid").(string) + "/"
+	} else {
+		savePath += "0000/"
+	}
+	os.MkdirAll("static"+savePath, 0755) //目录不存在则创建
+	//---------------------------------------------------------------------------------------
+	var yin = c.GetString("watermark")
+
+	bbb := bytes.NewBuffer(ddd)
+	jpg, _, _ := image.Decode(bbb) // 图片文件解码
+	//img := image.NewRGBA(image.Rect(0, 0, 480, 680))
+	img := image.NewRGBA(jpg.Bounds())
+	draw.Draw(img, jpg.Bounds().Add(image.Pt(0, 0)), jpg, jpg.Bounds().Min, draw.Src) //截取图片的一部分
+
+	const (
+		fontFile = "static/fonts/yahei.ttf"
+		fontSize = 16 // 字体尺寸
+		fontDPI  = 72 // 屏幕每英寸的分辨率
+	)
+	// 读字体数据
+	fontBytes, err := ioutil.ReadFile(fontFile)
+	if err == nil {
+		font, err := freetype.ParseFont(fontBytes)
+		if err == nil {
+			cc := freetype.NewContext()
+			cc.SetDPI(fontDPI)
+			cc.SetFont(font)
+			cc.SetFontSize(fontSize)
+			cc.SetClip(img.Bounds())
+			cc.SetDst(img)
+			cc.SetSrc(image.Black)
+
+			if yin != "0" {
+				//输出姓名
+				var realname = "-"
+				if c.GetSession("_me") != nil {
+					realname = c.GetSession("_me").(map[string]string)["realname"]
+				}
+				var x1 = 20
+				var y1 = 30
+				var txt1 = realname
+				pt := freetype.Pt(x1, y1+int(cc.PointToFixed(fontSize)>>8)) // 字出现的位置
+
+				_, err = cc.DrawString(txt1, pt)
+				if err != nil {
+					log.Println("向图片写字体出错1")
+					log.Println(err)
+				}
+				//输出时间日期
+				x1 = 20
+				y1 = 60
+				txt1 = time.Now().Format("2006-01-02 15:04:05")
+				pt = freetype.Pt(x1, y1+int(cc.PointToFixed(fontSize)>>8)) // 字出现的位置
+
+				_, err = cc.DrawString(txt1, pt)
+				if err != nil {
+					log.Println("向图片写字体出错1")
+					log.Println(err)
+				}
+				//输出拍摄地点
+				x1 = 20
+				y1 = 90
+				txt1 = c.GetString("_address")
+				if txt1 != "" {
+					pt = freetype.Pt(x1, y1+int(cc.PointToFixed(fontSize)>>8)) // 字出现的位置
+
+					_, err = cc.DrawString(txt1, pt)
+					if err != nil {
+						log.Println("向图片写字体出错1")
+						log.Println(err)
+					}
+				}
+
+			}
+
+			// 以PNG格式保存文件
+			var fn = fmt.Sprintf(savePath+"%d.jpg", time.Now().UnixNano()/1e6)
+			imgfile, err := os.Create("static" + fn)
+			if err != nil {
+				fmt.Println(err)
+			}
+			defer imgfile.Close()
+
+			//转成[]byte
+			// buf := new(bytes.Buffer)
+			// err = jpeg.Encode(buf, img, &jpeg.Options{100})
+			// ddd = buf.Bytes()
+
+			// //以下生成图片方式,4,5百k;速度慢,客户端能感受出来
+			err = png.Encode(imgfile, img)
+			if err != nil {
+				log.Println("生成图片出错")
+				log.Fatal(err)
+			} else {
+				c.Ctx.WriteString(fn)
+				return
+			}
+
+		}
+
+	}
+
+	//-------------------------------------------------------------------------------------
+	//以下方式生成速度快,图片质量低
+	var fn = fmt.Sprintf(savePath+"%d.jpg", time.Now().UnixNano()/1e6)
+	err = ioutil.WriteFile(path+"/static"+fn, ddd, 0666) //buffer输出到jpg文件中（不做处理，直接写到文件）
 	if err != nil {
 		c.Ctx.WriteString("")
 		fmt.Println("error:", err.Error())
