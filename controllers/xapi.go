@@ -518,6 +518,8 @@ func (c *XApiController) FieldJson() {
 					}
 				}
 				row["_value"] = defval
+			} else {
+				row["_value"] = ""
 			}
 			defval = ""
 		}
