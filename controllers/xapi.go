@@ -485,6 +485,8 @@ func (c *XApiController) ExTable() {
 	var extype = c.GetString("extype")
 	var expage = c.GetString("expage")
 	var explace = c.GetString("explace")
+	var id = c.GetString("id")
+	c.Data["id"] = id
 
 	var tb = db.First("select excontent from tb_table_ex where (code=? or tbid=?) and extype=? and expage=? and explace=?", code, tbid, extype, expage, explace)
 	if tb == nil {
@@ -492,6 +494,15 @@ func (c *XApiController) ExTable() {
 		return
 	}
 	var rst = tb["excontent"]
+
+	var tpl = template.New("")
+	tpl.Parse(rst)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e == nil {
+		rst = buf.String()
+	}
+
 	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
 	c.Ctx.Output.Body([]byte(rst))
 }
