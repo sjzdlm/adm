@@ -959,6 +959,7 @@ func (c *XApiController) EditPost() {
 	} else {
 		i = db.Insert2(xx, sql, tbname) //mysql msssql 可以返回主键
 		c.Data["id"] = i
+		id, _ = strconv.Atoi(fmt.Sprintf("%d", i))
 	}
 	fmt.Println("移动端返回主键:", c.Data["id"])
 	if i > 0 {
@@ -996,7 +997,8 @@ func (c *XApiController) EditPost() {
 			}
 		}
 
-		c.Ctx.WriteString("1")
+		//c.Ctx.WriteString("1")
+		c.Ctx.WriteString(fmt.Sprintf("%d", id))
 		return
 	} else {
 		c.Ctx.WriteString("0")
