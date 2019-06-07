@@ -64,6 +64,22 @@ func (c *XApiController) NavListJson() {
 
 //ListJson数据-----移动端专用
 func (c *XApiController) ListJson() {
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			var p = strings.Split(params[i], "=")
+			c.Data[p[0]] = p[1]
+			if paramstr != "" {
+				paramstr += ","
+			}
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = paramstr
+	//------------------------------------------------------------
 
 	var code = c.GetString("code")
 	var tb = db.First("select * from tb_table where code=?", code)
@@ -402,11 +418,50 @@ func (c *XApiController) ListJson() {
 //获取模块信息
 func (c *XApiController) TbJson() {
 	var code = c.GetString("code")
-	var tb = db.First("select id,code,`table`,is_create,is_search,is_edit,is_del from tb_table where code=?", code)
+	var tb = db.First("select id,code,`table`,is_create,is_search,is_edit,is_del,list_link from tb_table where code=?", code)
 	if tb == nil {
 		c.Ctx.WriteString("{}")
 		return
 	}
+
+	//------------------------------------------------------------------
+	var _me = c.GetSession("_me")
+	c.Data["_me"] = _me
+	if c.GetSession("_uid") != nil {
+		c.Data["_uid"] = c.GetSession("_uid").(string)
+	}
+	if c.GetSession("_username") != nil {
+		c.Data["_username"] = c.GetSession("_username").(string)
+	}
+
+	if c.GetSession("_usertype") != nil {
+		c.Data["_usertype"] = c.GetSession("_usertype").(string)
+	}
+
+	if c.GetSession("_userlevel") != nil {
+		c.Data["_userlevel"] = c.GetSession("_userlevel").(string)
+	}
+
+	if c.GetSession("_company") != nil {
+		c.Data["_company"] = c.GetSession("_company").(string)
+	}
+
+	if c.GetSession("_company_id") != nil {
+		c.Data["_company_id"] = c.GetSession("_company_id").(string)
+	}
+
+	if c.GetSession("_company_pid") != nil {
+		c.Data["_company_pid"] = c.GetSession("_company_pid").(string)
+	}
+	//进行模板替换操作
+	var tpl = template.New("")
+	tpl.Parse(tb["list_link"])
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e == nil {
+		tb["list_link"] = buf.String()
+	}
+
 	c.Data["json"] = tb
 	c.ServeJSON()
 }
@@ -421,6 +476,24 @@ func (c *XApiController) TitleJson() {
 	}
 	c.Data["json"] = tb
 	c.ServeJSON()
+}
+
+//获取模块扩展信息
+func (c *XApiController) ExTable() {
+	var code = c.GetString("code")
+	var tbid, _ = c.GetInt("tbid", 0)
+	var extype = c.GetString("extype")
+	var expage = c.GetString("expage")
+	var explace = c.GetString("explace")
+
+	var tb = db.First("select excontent from tb_table_ex where (code=? or tbid=?) and extype=? and expage=? and explace=?", code, tbid, extype, expage, explace)
+	if tb == nil {
+		c.Ctx.WriteString("")
+		return
+	}
+	var rst = tb["excontent"]
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
 }
 
 //FieldJson数据
@@ -672,6 +745,14 @@ func (c *XApiController) EditPost() {
 		c.Ctx.WriteString("code data not found")
 		return
 	}
+	var tbname = tb["table"]
+	if tb["data_type"] != "0" && tb["table_master"] == "" {
+		c.Ctx.WriteString("没有找到主表信息")
+		return
+	}
+	if tb["data_type"] != "0" && tb["table_master"] != "" {
+		tbname = tb["table_master"] //主表操作
+	}
 
 	var xx = db.NewDb(tb["conn_str"])
 	//纪录唯一性检查
@@ -682,15 +763,25 @@ func (c *XApiController) EditPost() {
 		for _, v := range uniqlist {
 			var fv = c.GetString(v["field_code"])
 			if fv != "" {
+				//主表字段名
+				var field_code = v["field_code"]
+				if tb["data_type"] != "0" && v["field_tb_code"] == "" {
+					continue
+				}
+				if tb["data_type"] != "0" && v["field_tb_code"] != "" {
+					field_code = v["field_tb_code"]
+				}
+				//----------------------------------------------------------
 				if uniwhere != "" {
 					uniwhere += " and "
 				}
-				uniwhere += v["field_code"] + "='" + c.GetString(v["field_code"]) + "' "
+
+				uniwhere += field_code + "='" + c.GetString(v["field_code"]) + "' "
 
 				if unifname != "" {
 					unifname += ","
 				}
-				unifname += v["field_code"]
+				unifname += field_code
 			}
 		}
 		if id > 0 {
@@ -714,8 +805,17 @@ func (c *XApiController) EditPost() {
 	var fields = db.Query("select * from tb_field where tbid=? and field_code!='id' and view_form=1 and form_type!='标签框'", tb["id"])
 	var sql = ""
 	if id > 0 {
-		sql = `update  ` + tb["table"] + " set "
+		sql = `update  ` + tbname + " set "
 		for k, v := range fields {
+			//主表字段名
+			var field_code = v["field_code"]
+			if tb["data_type"] != "0" && v["field_tb_code"] == "" {
+				continue
+			}
+			if tb["data_type"] != "0" && v["field_tb_code"] != "" {
+				field_code = v["field_tb_code"]
+			}
+			//----------------------------------------------------------
 			if k > 0 {
 				sql += ","
 			}
@@ -766,9 +866,9 @@ func (c *XApiController) EditPost() {
 				}
 
 			}
-			sql += " `" + v["field_code"] + "`='" + val + "' "
+			sql += " `" + field_code + "`='" + val + "' "
 
-			log += v["field_code"] + "=" + val + ";\r\n"
+			log += field_code + "=" + val + ";\r\n"
 
 			c.Data[v["field_code"]] = val
 		}
@@ -785,14 +885,24 @@ func (c *XApiController) EditPost() {
 		// 	_mchid.(string), _uid.(string), _username.(string), "操作日志", "修改", _username.(string)+"("+_uid.(string)+")修改["+tb["title"]+"]"+tb["table"]+"表记录,id="+strconv.Itoa(id), log, ip, atime,
 		// )
 	} else {
-		sql = `insert into ` + tb["table"] + `(`
+		sql = `insert into ` + tbname + `(`
 		var tmp = ""
 		for k, v := range fields {
+			//主表字段名
+			var field_code = v["field_code"]
+			if tb["data_type"] != "0" && v["field_tb_code"] == "" {
+				continue
+			}
+			if tb["data_type"] != "0" && v["field_tb_code"] != "" {
+				field_code = v["field_tb_code"]
+			}
+			//----------------------------------------------------------
+
 			if k > 0 {
 				sql += ","
 				tmp += ","
 			}
-			sql += "`" + v["field_code"] + "`"
+			sql += "`" + field_code + "`"
 
 			var val = c.GetString(v["field_code"])
 			val = strings.Replace(val, "'", "''", -1) //字符替换
@@ -847,7 +957,7 @@ func (c *XApiController) EditPost() {
 		i = db.Exec2(xx, sql)
 		c.Data["id"] = id
 	} else {
-		i = db.Insert2(xx, sql, tb["table"]) //mysql msssql 可以返回主键
+		i = db.Insert2(xx, sql, tbname) //mysql msssql 可以返回主键
 		c.Data["id"] = i
 	}
 	fmt.Println("移动端返回主键:", c.Data["id"])
