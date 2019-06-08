@@ -819,6 +819,7 @@ func (c *XApiController) EditPost() {
 	//
 	var fields = db.Query("select * from tb_field where tbid=? and field_code!='id' and view_form=1 and form_type!='标签框'", tb["id"])
 	var sql = ""
+	var tmp = ""
 	if id > 0 {
 		sql = `update  ` + tbname + " set "
 		for k, v := range fields {
@@ -831,8 +832,9 @@ func (c *XApiController) EditPost() {
 				field_code = v["field_tb_code"]
 			}
 			//----------------------------------------------------------
-			if k > 0 {
+			if k > 0 && tmp != "" {
 				sql += ","
+				tmp += ","
 			}
 			var val = c.GetString(v["field_code"])
 			val = strings.Replace(val, "'", "''", -1) //字符替换
