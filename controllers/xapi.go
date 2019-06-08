@@ -250,12 +250,13 @@ func (c *XApiController) ListJson() {
 				fstr_tmp += ","
 			}
 			fstr_tmp += v["field_code"]
+			break
 		}
 		if fstr_tmp != "" {
 			if fstr != "" {
 				fstr += ","
 			}
-			fstr += "CONCAT(" + fstr_tmp + ") as img"
+			fstr += "IFNULL(CONCAT(" + fstr_tmp + "),'/images/pic6.png') as img"
 		}
 		//标题
 		fstr_tmp = ""
