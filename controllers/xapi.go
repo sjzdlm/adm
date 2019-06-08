@@ -287,7 +287,8 @@ func (c *XApiController) ListJson() {
 			if fstr_tmp != "" {
 				fstr_tmp += ","
 			}
-			fstr_tmp += " '" + v["field_name"] + ":'," + v["field_code"] + ",';'"
+			//fstr_tmp += " '" + v["field_name"] + ":'," + v["field_code"] + ",';'"
+			fstr_tmp += " " + v["field_code"]
 		}
 		if fstr_tmp != "" {
 			if fstr != "" {
