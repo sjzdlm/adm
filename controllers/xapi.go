@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -71,6 +72,7 @@ func (c *XApiController) ListJson() {
 		var params = strings.Split(urls[1], "&")
 		for i := 0; i < len(params); i++ {
 			var p = strings.Split(params[i], "=")
+			p[1], _ = url.QueryUnescape(p[1])
 			c.Data[p[0]] = p[1]
 			if paramstr != "" {
 				paramstr += ","
@@ -79,6 +81,7 @@ func (c *XApiController) ListJson() {
 		}
 	}
 	c.Data["_paramstr"] = paramstr
+	fmt.Println("paramstr:", paramstr)
 	//------------------------------------------------------------
 
 	var code = c.GetString("code")
