@@ -242,7 +242,7 @@ func (c *XApiController) ListJson() {
 
 	var fstr = ""
 	if strings.Contains(con["dbtype"], "mysql") {
-		var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 and (view_list_place !='' or view_list_isoptionid =1) order by view_list_place", tb["id"])
+		var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 and (view_list_place !='' or view_list_isoptionid =1) order by view_list_place,form_sort", tb["id"])
 		//图片
 		var fstr_tmp = ""
 		for _, v := range fs {
