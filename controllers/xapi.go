@@ -887,6 +887,7 @@ func (c *XApiController) EditPost() {
 
 			log += field_code + "=" + val + ";\r\n"
 
+			tmp += "'" + val + "'" //暂时没用
 			c.Data[v["field_code"]] = val
 		}
 		sql += " where " + tb["pri_key"] + "='" + strconv.Itoa(id) + "' "
