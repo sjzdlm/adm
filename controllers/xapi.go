@@ -71,7 +71,13 @@ func (c *XApiController) ListJson() {
 	if len(urls) > 1 {
 		var params = strings.Split(urls[1], "&")
 		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
 			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
 			p[1], _ = url.QueryUnescape(p[1])
 			c.Data[p[0]] = p[1]
 			if paramstr != "" {
@@ -242,7 +248,8 @@ func (c *XApiController) ListJson() {
 
 	var fstr = ""
 	if strings.Contains(con["dbtype"], "mysql") {
-		var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 and (view_list_place !='' or view_list_isoptionid =1) order by view_list_place,form_sort", tb["id"])
+		//var fs = db.Query("select * from tb_field where tbid=? and  view_list=1 and (view_list_place !='' or view_list_isoptionid =1) order by view_list_place,form_sort", tb["id"])
+		var fs = db.Query("select * from tb_field where tbid=? and  (view_list=1 or view_list_place !='' or view_list_isoptionid =1) order by view_list_place,form_sort", tb["id"])
 		//图片
 		var fstr_tmp = ""
 		for _, v := range fs {
@@ -259,7 +266,7 @@ func (c *XApiController) ListJson() {
 			if fstr != "" {
 				fstr += ","
 			}
-			fstr += "IFNULL(CONCAT(" + fstr_tmp + "),'/images/pic6.png') as img"
+			fstr += "IFNULL(CONCAT(" + fstr_tmp + "),'/images/pic6.png') as _img"
 		}
 		//标题
 		fstr_tmp = ""
@@ -276,7 +283,7 @@ func (c *XApiController) ListJson() {
 			if fstr != "" {
 				fstr += ","
 			}
-			fstr += "CONCAT(" + fstr_tmp + ") as title"
+			fstr += "CONCAT(" + fstr_tmp + ") as _title"
 		}
 		//描述
 		fstr_tmp = ""
@@ -294,7 +301,7 @@ func (c *XApiController) ListJson() {
 			if fstr != "" {
 				fstr += ","
 			}
-			fstr += "CONCAT(" + fstr_tmp + ") as `desc`"
+			fstr += "CONCAT(" + fstr_tmp + ") as `_desc`"
 		}
 		//右角标
 		fstr_tmp = ""
@@ -311,25 +318,8 @@ func (c *XApiController) ListJson() {
 			if fstr != "" {
 				fstr += ","
 			}
-			fstr += "CONCAT(" + fstr_tmp + ") as rss"
+			fstr += "CONCAT(" + fstr_tmp + ") as _rss"
 		}
-		// //选项ID,此ID保存到前端本地
-		// fstr_tmp = ""
-		// for _, v := range fs {
-		// 	if v["view_list_place"] != "chooseid" {
-		// 		continue
-		// 	}
-		// 	if fstr_tmp != "" {
-		// 		fstr_tmp += ","
-		// 	}
-		// 	fstr_tmp += v["field_code"]
-		// }
-		// if fstr_tmp != "" {
-		// 	if fstr != "" {
-		// 		fstr += ","
-		// 	}
-		// 	fstr += "CONCAT(" + fstr_tmp + ") as chooseid"
-		// }
 
 		//选项ID,此ID保存到前端本地
 		fstr_tmp = ""
@@ -351,11 +341,19 @@ func (c *XApiController) ListJson() {
 			fstr += "CONCAT(" + fstr_tmp + ") as _optionid"
 		}
 
-		if fstr == "" {
-			fstr = " * "
-		} else {
-			fstr = " id," + fstr
+		// if fstr == "" {
+		// 	fstr = " * "
+		// } else {
+		// 	fstr = " id," + fstr
+		// }
+
+		for _, v := range fs {
+			if fstr != "" {
+				fstr += ","
+			}
+			fstr += " " + v["field_code"]
 		}
+
 	} else {
 		for _, v := range fs {
 			if fstr != "" {
