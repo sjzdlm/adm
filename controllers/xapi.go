@@ -341,12 +341,6 @@ func (c *XApiController) ListJson() {
 			fstr += "CONCAT(" + fstr_tmp + ") as _optionid"
 		}
 
-		// if fstr == "" {
-		// 	fstr = " * "
-		// } else {
-		// 	fstr = " id," + fstr
-		// }
-
 		for _, v := range fs {
 			if fstr != "" {
 				fstr += ","
@@ -367,6 +361,19 @@ func (c *XApiController) ListJson() {
 		}
 		if fstr == "" {
 			fstr = " * "
+		}
+	}
+	//编辑需要id,查找是否存在ID,不存在则自动添加一个
+	var ishasid = ""
+	for _, v := range fs {
+		if v["field_code"] == "id" {
+			ishasid = "id"
+			break
+		}
+	}
+	if ishasid == "" {
+		if fstr != "*" {
+			fstr = "id," + fstr
 		}
 	}
 
