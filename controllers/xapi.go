@@ -519,6 +519,27 @@ func (c *XApiController) ExTable() {
 
 //FieldJson数据
 func (c *XApiController) FieldJson() {
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
+			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
+			p[1], _ = url.QueryUnescape(p[1])
+			c.Data[p[0]] = p[1]
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = url.QueryEscape(paramstr)
+	//------------------------------------------------------------
+
 	var code = c.GetString("code")
 	var tb = db.First("select * from tb_table where code=?", code)
 	if tb == nil {
@@ -625,6 +646,26 @@ func (c *XApiController) FieldJson() {
 
 //DataJson
 func (c *XApiController) DataJson() {
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
+			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
+			p[1], _ = url.QueryUnescape(p[1])
+			c.Data[p[0]] = p[1]
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = url.QueryEscape(paramstr)
+	//------------------------------------------------------------
 	var code = c.GetString("code")
 	var tb = db.First("select * from tb_table where code=?", code)
 	if tb == nil {
