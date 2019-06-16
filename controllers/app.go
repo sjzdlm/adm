@@ -146,6 +146,20 @@ func (c *AppController) Get() {
 		c.Ctx.WriteString(rst)
 		return
 	}
+	//判断是否需要授权
+	if app["oauth2_on"] == "1" {
+		var openid = c.GetString("openid")
+		if openid == "" {
+			var redirect_uri = "http://" + c.Ctx.Input.Domain() + "/app/" + appcode
+			var js = `
+			<script>
+				window.location='/wxmp/oauth2?wxid=` + app["oauth2_wxid"] + "&url=" + url.QueryEscape(redirect_uri) + `';
+			</script>
+			`
+			c.Ctx.WriteString(js)
+			return
+		}
+	}
 	c.Data["app"] = app
 	//判断是否需要登录
 	c.Data["login_on"] = app["login_on"]
