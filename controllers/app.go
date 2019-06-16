@@ -34,9 +34,6 @@ func (c *AppController) Vue() {
 			}
 			p[1], _ = url.QueryUnescape(p[1])
 			c.Data[p[0]] = p[1]
-			if paramstr != "" {
-				paramstr += ","
-			}
 			paramstr += "&" + p[0] + "=" + p[1]
 		}
 	}
@@ -165,9 +162,6 @@ func (c *AppController) Get() {
 			}
 			p[1], _ = url.QueryUnescape(p[1])
 			c.Data[p[0]] = p[1]
-			if paramstr != "" {
-				paramstr += ","
-			}
 			paramstr += "&" + p[0] + "=" + p[1]
 		}
 	}
