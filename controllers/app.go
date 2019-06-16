@@ -148,7 +148,7 @@ func (c *AppController) Get() {
 	}
 	//判断是否需要授权
 	if app["oauth2_on"] == "1" {
-		var openid = c.GetString("openid")
+		var openid = c.GetString("_openid")
 		if openid == "" {
 			var redirect_uri = "http://" + c.Ctx.Input.Domain() + "/app/" + appcode
 			var js = `
@@ -159,6 +159,11 @@ func (c *AppController) Get() {
 			c.Ctx.WriteString(js)
 			return
 		}
+		var nickname = c.GetString("_nickname")
+		var headimg = c.GetString("_headimgurl")
+		c.Data["_openid"] = openid
+		c.Data["_nickname"] = nickname
+		c.Data["_headimgurl"] = headimg
 	}
 	c.Data["app"] = app
 	//判断是否需要登录
