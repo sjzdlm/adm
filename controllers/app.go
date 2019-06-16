@@ -37,7 +37,7 @@ func (c *AppController) Vue() {
 			paramstr += "&" + p[0] + "=" + p[1]
 		}
 	}
-	c.Data["_paramstr"] = paramstr
+	c.Data["_paramstr"] = url.QueryEscape(paramstr)
 	//------------------------------------------------------------
 	var rst = ""
 	var appcode = c.GetString("app")
