@@ -57,7 +57,7 @@ func (c *AppController) Vue() {
 					rst += `	',
 					`
 					//对tpldata进行golang的模板解析
-					var data map[string]interface{} = map[string]interface{}{}
+					var data = c.Data // map[string]interface{} = map[string]interface{}{}
 					data["app"] = app
 					data["page"] = prow
 					data["m"] = row
