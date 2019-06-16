@@ -153,7 +153,7 @@ func (c *AppController) Get() {
 			var redirect_uri = "http://" + c.Ctx.Input.Domain() + "/app/" + appcode
 			var js = `
 			<script>
-				window.location='/wxmp/oauth2?wxid=` + app["oauth2_wxid"] + "&url=" + url.QueryEscape(redirect_uri) + `';
+				window.location='/wxmp/oauth2?wxid=` + app["oauth2_wxid"] + "&scope=snsapi_userinfo&url=" + url.QueryEscape(redirect_uri) + `';
 			</script>
 			`
 			c.Ctx.WriteString(js)
