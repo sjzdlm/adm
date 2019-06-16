@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"net/url"
 	"strconv"
@@ -18,6 +19,29 @@ type AppController struct {
 
 ///Vue组件脚本
 func (c *AppController) Vue() {
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
+			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
+			p[1], _ = url.QueryUnescape(p[1])
+			c.Data[p[0]] = p[1]
+			if paramstr != "" {
+				paramstr += ","
+			}
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = paramstr
+	//------------------------------------------------------------
 	var rst = ""
 	var appcode = c.GetString("app")
 	if appcode != "" {
@@ -67,6 +91,16 @@ func (c *AppController) Vue() {
 				}
 			}
 		}
+	}
+	//进行模板解析
+	var tpl = template.New("")
+	tpl.Parse(rst)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e != nil {
+		fmt.Println("vue 组件 template 执行错误:", e.Error())
+	} else {
+		rst = buf.String()
 	}
 
 	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
@@ -244,6 +278,18 @@ func (c *AppController) Get() {
 		}
 
 	}
+
+	//进行模板解析
+	var tpl = template.New("")
+	tpl.Parse(pagetpl)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+	if e != nil {
+		fmt.Println("vue pagetpl template 执行错误:", e.Error())
+	} else {
+		pagetpl = buf.String()
+	}
+
 	c.Data["pagetpl"] = pagetpl
 	//fmt.Println("pagetpl", pagetpl)
 
