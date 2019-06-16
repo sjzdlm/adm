@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"html/template"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -114,6 +115,30 @@ func (c *AppController) Get() {
 		return
 	}
 	c.Data["appcode"] = appcode
+
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
+			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
+			p[1], _ = url.QueryUnescape(p[1])
+			c.Data[p[0]] = p[1]
+			if paramstr != "" {
+				paramstr += ","
+			}
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = paramstr
+	//------------------------------------------------------------
 
 	var app = db.First("select * from tbm_app where code=?", appcode)
 	if len(app) < 1 {
