@@ -595,7 +595,7 @@ func (c *XApiController) FieldJson() {
 	}
 	var fields = db.Query(`select 
 	id,tbid,tbcode,field_name,field_code,field_type,field_length,
-	field_defval,field_prikey,form_type,form_length,form_sort,form_tip,
+	field_defval,field_prikey,form_type,form_length,form_sort,form_tip,form_tipmsg,form_weui_title,form_margin_top,
 	form_value,form_required,view_list,view_list_module,view_list_islink,is_hide,view_form ,is_sort,is_search,
 	is_total ,is_editable,is_readonly,form_cascade ,memo,state
 	from tb_field where tbid=? and  view_form=1 order by form_sort`, tb["id"])
