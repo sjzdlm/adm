@@ -57,7 +57,7 @@ func (c *XApiController) NavListJson() {
 	}
 	//fmt.Println("page_id:", pageid)
 
-	var sql = `select * from tbm_nav_list where page_id=? order by sort`
+	var sql = `select * from tbm_nav_list where page_id=? and state=1 order by sort`
 	var list = db.Query(sql, pageid)
 	c.Data["json"] = list
 	c.ServeJSON()
