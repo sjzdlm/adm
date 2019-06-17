@@ -733,6 +733,7 @@ func (c *XApiController) DataJson() {
 		sql = "select * from (" + tb["table"] + ") as" + data_table + " " + where
 	}
 	var m = db.First2(xx, sql, id)
+	c.SetSession("_xapi_datajson", m)
 	c.Data["json"] = m
 	if len(m) < 1 {
 		c.Data["json"] = "{}"
@@ -751,6 +752,10 @@ func (c *XApiController) ItemJson() {
 	}
 
 	//------------------------------------------------------------------
+	var _xapi_datajson = c.GetSession("_xapi_datajson")
+	if _xapi_datajson != nil {
+		c.Data["_xapi_datajson"] = _xapi_datajson
+	}
 	var _me = c.GetSession("_me")
 	c.Data["_me"] = _me
 	if c.GetSession("_uid") != nil {
