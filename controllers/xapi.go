@@ -59,6 +59,53 @@ func (c *XApiController) NavListJson() {
 
 	var sql = `select * from tbm_nav_list where page_id=? and state=1 order by sort`
 	var list = db.Query(sql, pageid)
+
+	//遍历所有get参数信息放到模板变量--------------------------------
+	var paramstr = ""
+	var urls = strings.Split(c.Ctx.Input.URI(), "?")
+	if len(urls) > 1 {
+		var params = strings.Split(urls[1], "&")
+		for i := 0; i < len(params); i++ {
+			if params[i] == "" || params[i] == "&" {
+				continue
+			}
+			var p = strings.Split(params[i], "=")
+			if len(p) < 2 {
+				continue
+			}
+			p[1], _ = url.QueryUnescape(p[1])
+			c.Data[p[0]] = p[1]
+			if paramstr != "" {
+				paramstr += ","
+			}
+			paramstr += "&" + p[0] + "=" + p[1]
+		}
+	}
+	c.Data["_paramstr"] = paramstr
+	//------------------------------------------------------------
+	for i, _ := range list {
+		//进行sql模板替换操作
+		var tpl = template.New("")
+		tpl.Parse(list[i]["url"])
+		var buf bytes.Buffer
+		var e = tpl.Execute(&buf, c.Data)
+		if e != nil {
+			fmt.Println("navlistjson template error:", e.Error())
+		} else {
+			list[i]["url"] = buf.String()
+		}
+
+		tpl = template.New("")
+		tpl.Parse(list[i]["title"])
+		buf = bytes.Buffer{}
+		e = tpl.Execute(&buf, c.Data)
+		if e != nil {
+			fmt.Println("navlistjson template error:", e.Error())
+		} else {
+			list[i]["title"] = buf.String()
+		}
+	}
+
 	c.Data["json"] = list
 	c.ServeJSON()
 }
