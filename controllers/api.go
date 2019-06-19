@@ -256,7 +256,11 @@ func (c *ApiController) Get() {
 					}
 					fmt.Println("..................api model:", buf.String())
 					if m["conn_str"] != "" {
-						var p = db.First2(XX, buf.String())
+						var sqlstr = buf.String()
+						sqlstr = strings.Replace(sqlstr, "&gt;", ">", -1)
+						sqlstr = strings.Replace(sqlstr, "&lt;", "<", -1)
+
+						var p = db.First2(XX, sqlstr)
 						if p != nil {
 							data[v["param_name"]] = p
 						}
@@ -277,8 +281,12 @@ func (c *ApiController) Get() {
 					}
 					fmt.Println("..................api list:", buf.String())
 					if m["conn_str"] != "" {
-						if strings.Contains(buf.String(), "limit 1") || strings.Contains(buf.String(), "top 1") {
-							var p = db.First2(XX, buf.String())
+						var sqlstr = buf.String()
+						sqlstr = strings.Replace(sqlstr, "&gt;", ">", -1)
+						sqlstr = strings.Replace(sqlstr, "&lt;", "<", -1)
+
+						if strings.Contains(sqlstr, "limit 1 ") || strings.Contains(sqlstr, "top 1 ") {
+							var p = db.First2(XX, sqlstr)
 							if p != nil {
 								data[v["param_name"]] = p
 							}
@@ -286,12 +294,12 @@ func (c *ApiController) Get() {
 							var _page, _ = c.GetInt("_page", 0)
 							var _pagesize, _ = c.GetInt("_pagesize", 20)
 							if _page > 0 {
-								var rst1 = db.Pager2(XX, _page, _pagesize, buf.String())
+								var rst1 = db.Pager2(XX, _page, _pagesize, sqlstr)
 								c.Data["json"] = rst1
 								c.ServeJSON()
 								return
 							} else {
-								var p = db.Query2(XX, buf.String())
+								var p = db.Query2(XX, sqlstr)
 								if p != nil {
 									data[v["param_name"]] = p
 								}
@@ -315,7 +323,12 @@ func (c *ApiController) Get() {
 					}
 					if m["conn_str"] != "" {
 						fmt.Println("sqlexec:", buf.String())
-						var p = db.Exec2(XX, buf.String())
+
+						var sqlstr = buf.String()
+						sqlstr = strings.Replace(sqlstr, "&gt;", ">", -1)
+						sqlstr = strings.Replace(sqlstr, "&lt;", "<", -1)
+
+						var p = db.Exec2(XX, sqlstr)
 						data[v["param_name"]] = p
 						if v["param_name"] == "extra" {
 							extra = strconv.FormatInt(p, 10)
