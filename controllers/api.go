@@ -279,12 +279,12 @@ func (c *ApiController) Get() {
 						c.Ctx.Output.Body([]byte(rst))
 						return
 					}
-					fmt.Println("..................api list:", buf.String())
+					//fmt.Println("..................api list:", buf.String())
 					if m["conn_str"] != "" {
 						var sqlstr = buf.String()
 						sqlstr = strings.Replace(sqlstr, "&gt;", ">", -1)
 						sqlstr = strings.Replace(sqlstr, "&lt;", "<", -1)
-
+						fmt.Println("..................api list:", sqlstr)
 						if strings.Contains(sqlstr, "limit 1 ") || strings.Contains(sqlstr, "top 1 ") {
 							var p = db.First2(XX, sqlstr)
 							if p != nil {
