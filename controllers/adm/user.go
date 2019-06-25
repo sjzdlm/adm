@@ -272,7 +272,7 @@ func (c *UserController) ListJson() {
 
 	qtxt = strings.TrimSpace(string(qtxt))
 	if qtxt != "" {
-		where += " where `username` like '%" + qtxt + "%'"
+		where += " where (`username` like '%" + qtxt + "%' or realname like '%" + qtxt + "%' or company like '%" + qtxt + "%') "
 	}
 
 	//---------------------------------------------------------------------------------------
@@ -315,6 +315,16 @@ func (c *UserController) ListJson() {
 	}
 	//------------------------------------------------------------------------------------------
 
+	var usertype = c.GetString("usertype")
+	if usertype != "0" && usertype != "" {
+		if where != "" {
+			where += " and usertype='" + usertype + "' "
+		} else {
+			where += " where  usertype='" + usertype + "' "
+		}
+
+	}
+
 	//排序
 	var sort = c.GetString("sort")
 	var order = c.GetString("order")
@@ -323,7 +333,8 @@ func (c *UserController) ListJson() {
 	} else {
 		where += " order by usertype,company_pid,company_id "
 	}
-	fmt.Println("where:", where)
+
+	//fmt.Println("where:", where)
 	var rst = db.Pager(page, pageSize, "select *  from adm_user "+where)
 	//fmt.Println(rst)
 
@@ -1662,8 +1673,8 @@ var adm_user_list = `
 		jq=jQuery;
 	}
 function doSearch(){
-        //alert($('#pid').combobox("getValue"));
         $('#tt').datagrid('load',{
+			usertype: $('#usertype').combobox("getValue"),
 			qtxt:$('#qtxt').val()
         });
     }
@@ -1824,8 +1835,15 @@ function doDel(){
             <a href="#" class="easyui-linkbutton" iconcls="icon-1" plain="true" onclick="doEdit();">编辑</a>
             <a href="#" class="easyui-linkbutton" iconcls="icon-no" plain="true" onclick="doDel();">删除</a>
         </div>
-        <div>
-            查询参数: <input class="easyui-textbox" id="qtxt" style="width:80px">
+		<div>
+		用户类型: 
+		<select  id="usertype" name="usertype" style="width:130px;" class="easyui-combobox" editable='false'>
+		<option value="">请选择...</option>
+		{{range $i,$row:=.usertype_list}}
+		<option value="{{$row.id}}">{{$row.name}}</option>
+		{{end}}
+		</select>
+            搜索: <input class="easyui-textbox" id="qtxt" prompt="请输入要检索的账号、姓名、单位等..." style="width:210px">
 
 
 			<a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>&nbsp;

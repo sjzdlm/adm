@@ -475,7 +475,7 @@ func (c *XApiController) ListJson() {
 //获取模块信息
 func (c *XApiController) TbJson() {
 	var code = c.GetString("code")
-	var tb = db.First("select id,code,`table`,is_create,is_search,is_edit,is_del,list_link from tb_table where code=?", code)
+	var tb = db.First("select id,code,`table`,title,title_list,title_new,title_edit,is_create,is_search,is_edit,is_del,list_link from tb_table where code=?", code)
 	if tb == nil {
 		c.Ctx.WriteString("{}")
 		return
@@ -526,7 +526,7 @@ func (c *XApiController) TbJson() {
 //获取标题信息
 func (c *XApiController) TitleJson() {
 	var code = c.GetString("code")
-	var tb = db.First("select id,code,title,title_list,title_edit from tb_table where code=?", code)
+	var tb = db.First("select id,code,title,title_list,title_new,title_edit from tb_table where code=?", code)
 	if tb == nil {
 		c.Ctx.WriteString("{}")
 		return
