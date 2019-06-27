@@ -853,3 +853,10 @@ var adm_main_def = `
 
 </html>
 `
+
+//返回子系统列表
+func (c *MainController) SysListJson() {
+	var rst = db.Query("select id,sysid,pid,title,label,url,orders,image,memo from adm_menu where sysid=0 and pid=0  ")
+	c.Data["json"] = rst
+	c.ServeJSON()
+}

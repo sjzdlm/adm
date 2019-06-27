@@ -2850,6 +2850,14 @@ func (c *UserController) UserTypeListJson() {
 		where += " and `name` like '%" + qtxt + "%'"
 	}
 
+	//子系统
+	var sysid = "0"
+	var _sysid = c.GetSession("_sysid")
+	if _sysid != nil {
+		sysid = _sysid.(string)
+	}
+	where += " and (sysid=" + sysid + " or sysid=0) "
+
 	var rst = db.Pager(page, pageSize, "select id,level,mch_id,name,orders,sysid,state from adm_usertype where 1=1 "+where)
 
 	c.Data["json"] = rst
@@ -2986,6 +2994,10 @@ func (c *UserController) UserTypeEdit() {
 		var m = db.First("select * from adm_usertype where  id=?", id)
 		c.Data["m"] = m
 	}
+	//读取子系统列表
+	var syslist = db.Query("select * from adm_menu where sysid=0 and pid=0")
+	c.Data["syslist"] = syslist
+
 	//数据库链接
 	var dblist = db.Query("select * from adm_conn where state=1")
 	if dblist != nil {
@@ -3014,6 +3026,7 @@ func (c *UserController) UserTypeEditPost() {
 	var orders, _ = c.GetInt("orders", 0)
 	var state = c.GetString("state")
 	var conn_str = c.GetString("conn_str")
+	var sysid = c.GetString("sysid")
 	var bindapi = c.GetString("bindapi")
 	if state == "on" || state == "1" {
 		state = "1"
@@ -3033,6 +3046,7 @@ func (c *UserController) UserTypeEditPost() {
 		}
 		sql = `
 		update adm_usertype set 
+		sysid=?,
 		name=?,
 		orders=?,
 		conn_str=?,
@@ -3041,6 +3055,7 @@ func (c *UserController) UserTypeEditPost() {
 		where id=?
 		`
 		var i = db.Exec(sql,
+			sysid,
 			name,
 			orders,
 			conn_str,
@@ -3058,16 +3073,18 @@ func (c *UserController) UserTypeEditPost() {
 	} else {
 		sql = `
 		insert into adm_usertype(
+			sysid,
 			name,
 			orders,
 			conn_str,
 			bindapi,
 			state
 		)values(
-			?,?,?,?,?
+			?,?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
+			sysid,
 			name,
 			orders,
 			conn_str,
@@ -3190,6 +3207,8 @@ function doDel(){
     }
 
 }
+
+	
     $(function(){
 
     })
@@ -3239,6 +3258,23 @@ function doDel(){
 			return value;
 		}
 	}
+
+	var _syslist=[];
+	jQuery.get('/adm/main/syslistjson',function(data){
+		_syslist=data;
+	});
+
+	function rowformater_sys(value, row, index) {
+		if(value=="0"){
+			return "全局统用";
+		}else{
+			for(var i=0;i<_syslist.length;i++){
+				if(_syslist[i].sysid==value){
+					return _syslist[i].title;
+				}
+			}
+		}
+	}
 	 
     </script>
 </head>
@@ -3253,9 +3289,9 @@ function doDel(){
         <thead>
             <tr>
 				<th field="id" width="20">ID</th>
+				<th field="sysid" width="70" formatter="rowformater_sys">系统</th>
 				<th field="name" width="70">名称</th>
 				<th field="orders" width="50"  >排序</th>
-                
 				<th field="state" width="50" formatter="rowformater_state">状态</th>
 				<th field=" " width="50">操作</th>
             </tr>
@@ -3333,7 +3369,27 @@ var adm_user_usertypeedit = `
                 <tr>
                     <td>名称:</td>
                     <td><input class="easyui-textbox" type="text" style="width:180px;" name="name" value="{{.m.name}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
-                </tr>
+				</tr>
+				<tr>
+                    <td>系统:</td>
+                    <td>
+                        <select id="sysid" name="sysid" style="width:180px;" class="easyui-combobox" editable="false">
+							<option  value="0">全局系统</option>
+							{{range $k,$v :=.syslist}}
+                            <option  value="{{$v.id}}">{{$v.title}}</option>
+                            {{end}}
+                        </select>
+                        <script language="javascript">
+                            $(function(){
+                                $('#sysid').combobox({
+									onLoadSuccess: function () {
+										$('#sysid').combobox('select','{{.m.sysid}}');
+									}
+								});	
+                            });  
+                        </script>
+                    </td>
+				</tr>
 				<tr>
                     <td>排序:</td>
                     <td><input class="easyui-textbox" type="text" style="width:180px;" name="orders" value="{{.m.orders}}"  ></input></td>
@@ -3446,6 +3502,17 @@ func (c *UserController) UListJson() {
 			where += " where  usertype='" + usertype + "' "
 		}
 
+	}
+	//子系统
+	var sysid = "0"
+	var _sysid = c.GetSession("_sysid")
+	if _sysid != nil {
+		sysid = _sysid.(string)
+	}
+	if where != "" {
+		where += " and (sysid=" + sysid + " or sysid=0) "
+	} else {
+		where += " where  (sysid=" + sysid + " or sysid=0) "
 	}
 
 	//排序

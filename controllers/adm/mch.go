@@ -836,9 +836,9 @@ function doDel(){
 			return "-";
 		}else{
 			for(var i=0;i<_usertype.length;i++){
-				console.log(_usertype[i].level);
-				console.log(value);
-				console.log("---------------------------");
+				//console.log(_usertype[i].level);
+				//console.log(value);
+				//console.log("---------------------------");
 				if(_usertype[i].level==value){
 					return _usertype[i].name;
 				}
