@@ -38,6 +38,9 @@ func (c *MchController) List() {
 
 //DeptList 部门列表页面
 func (c *MchController) DeptList() {
+	//账号级别
+	var levellist = db.Query("select * from adm_usertype where state=1 and sysid=0")
+	c.Data["levellist"] = levellist
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_mch_deptlist)
@@ -128,6 +131,10 @@ func (c *MchController) Edit() {
 
 //企业部门添加/编辑
 func (c *MchController) DeptEdit() {
+	//账号级别
+	var levellist = db.Query("select * from adm_usertype where state=1 and sysid=0")
+	c.Data["levellist"] = levellist
+
 	var id, _ = c.GetInt("id", 0)
 	if id > 0 {
 		var m = db.First("select * from adm_dept where mch_id =? and  id=?", c.GetSession("_mch_id").(string), id)
@@ -247,22 +254,47 @@ func (c *MchController) EditPost() {
 //部门信息保存提交
 func (c *MchController) DeptEditPost() {
 	var id, _ = c.GetInt("id", 0)
-	var dept_name = c.GetString("dept_name")
+	var dept_name = c.GetString("name")
 	var pid = c.GetString("pid")
+	var level = c.GetString("level")
+	var main_leader = c.GetString("main_leader")
+	var phone1 = c.GetString("phone1")
+	var phone2 = c.GetString("phone2")
+	var address = c.GetString("address")
 	var state = c.GetString("state")
+
+	var pname = ""
+	if pid != "" {
+		var p = db.First("select * from adm_dept where id=?", pid)
+		if len(p) > 0 {
+			pname = p["name"]
+		}
+	}
 
 	var sql = ""
 	if id > 0 {
 		sql = `
 		update adm_dept set 
 		pid=?,
-		dept_name=?,
+		pname=?,
+		name=?,
+		level=?,
+		main_leader=?,
+		phone1=?,
+		phone2=?,
+		address=?,
 		state=?
 		where id=?
 		`
 		var i = db.Exec(sql,
 			pid,
+			pname,
 			dept_name,
+			level,
+			main_leader,
+			phone1,
+			phone2,
+			address,
 			state,
 			id,
 		)
@@ -277,17 +309,29 @@ func (c *MchController) DeptEditPost() {
 		sql = `
 		insert into adm_dept(
 			pid,
-			dept_name,
+			pname,
+			name,
 			mch_id,
+			level,
+			main_leader,
+			phone1,
+			phone2,
+			address,
 			state
 		)values(
-			?,?,?,?
+			?,?,?,?,?,?,?,?,?,?
 		)
 		`
 		var i = db.Exec(sql,
 			pid,
+			pname,
 			dept_name,
 			c.GetSession("_mch_id").(string),
+			level,
+			main_leader,
+			phone1,
+			phone2,
+			address,
 			state,
 		)
 		if i > 0 {
@@ -662,7 +706,7 @@ var adm_mch_deptlist = `
     <script type="text/javascript" src="/js/easyui/jquery.easyui.min.js"></script>
     <script type="text/javascript" src="/js/easyui/locale/easyui-lang-zh_CN.js"></script>
 	<script type="text/javascript" src="/js/layer/layer.js"></script>
-
+	
     <style>
         body {
             background: #fff;
@@ -683,9 +727,9 @@ function doEdit(){
         var row = $('#tt').datagrid('getSelected');
         if (row){
 			var w=$('#win').window({
-					width:420,
-					height:280,
-					top:($(window).height() - 350) * 0.5,   
+					width:460,
+					height:420,
+					top:($(window).height() - 250) * 0.5,   
 						left:($(window).width() - 680) * 0.5,
 					modal:true
 			});
@@ -725,8 +769,14 @@ function doDel(){
     }
 
 }
+	var _usertype=[];
+	jQuery.get('/adm/user/usertypelistjson',function(data){
+		_usertype=data.rows;
+	});
     $(function(){
-
+		// jQuery.get('/adm/user/usertypelistjson',function(data){
+		// 	_usertype=data.rows;
+		// });
     })
 
 	Date.prototype.Format = function (fmt) { //author: meizz   
@@ -780,22 +830,42 @@ function doDel(){
 		}else{
 			return value;
 		}
-    }
+	}
+	function rowformater_level(value, row, index) {
+		if(value=="0"){
+			return "-";
+		}else{
+			for(var i=0;i<_usertype.length;i++){
+				console.log(_usertype[i].level);
+				console.log(value);
+				console.log("---------------------------");
+				if(_usertype[i].level==value){
+					return _usertype[i].name;
+				}
+			}
+		}
+	}
+	
     </script>
 </head>
 <body style="padding:2px;margin-bottom:2px;">
 
     <table class="easyui-datagrid" style="width:600px;height:250px"
            url="/adm/mch/deptlistjson"
-           title="级别管理" toolbar="#tb" id="tt"
+           title="部门管理" toolbar="#tb" id="tt"
            singleselect="true" fitcolumns="true" fit="true"
            data-options="fitColumns:true,pageList:[20,50,100],pageSize:20,pagination:true"
            >
         <thead>
             <tr>
-				<th field="id" width="20">ID</th>
-				<th field="pid" width="50" formatter="rowformater_pid">上级</th>
-                <th field="dept_name" width="70">部门</th>
+				<th field="id" width="40">ID</th>
+				<th field="level" width="50" formatter="rowformater_level">级别</th> 
+				<th field="pname" width="70" formatter="rowformater_pid">上级</th>
+				<th field="name" width="70">部门</th>
+				<th field="main_leader" width="70">主要领导</th>
+				<th field="phone1" width="70">联系电话</th>
+				<th field="phone2" width="70">备用电话</th>
+				<th field="address" width="70">地址</th>
 				<th field="state" width="50" formatter="rowformater_state">状态</th>
 				<th field=" " width="50">操作</th>
             </tr>
@@ -810,14 +880,14 @@ function doDel(){
         </div>
         <div>
             
-            查询参数: <input class="easyui-textbox" id="qtxt" style="width:80px">
+            查询参数: <input class="easyui-textbox" prompt="请输入要检索的关键词" id="qtxt" style="width:180px">
 
 
             <a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>
         </div>
     </div>
 
-    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:420px;height:420px;padding:5px;overflow-x: hidden;">
+    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:460px;height:440px;padding:5px;overflow-x: hidden;">
         Some Content.
     </div>
 
@@ -861,16 +931,35 @@ var adm_mch_deptedit = `
 
 
 <div class="easyui-panel" title="" style="width:100%" fix="true" border="false">
-    <div style="padding:10px 60px 20px 60px">
+    <div style="padding:10px 20px 20px 20px">
         <form id="form1" action="/adm/mch/depteditpost" method="post">
 			<table cellpadding="5">
 			<tr>
+				<td>级别:</td>
+				<td>
+					<select id="level" class="easyui-combobox" name="level" editable="false" style="width:180px;" >
+					<option value="">请选择级别</option>	
+					{{range $i,$v:=.levellist}}
+						<option value="{{$v.level}}">{{$v.name}}</option> 
+						{{end}} 
+					</select>
+					<script type="text/javascript">
+					
+						$('#level').combobox({
+							onLoadSuccess: function (data) {
+								$('#level').combobox('setValue', "{{.m.level}}");
+							}
+						}); 
+					</script>
+				</td>
+			</tr>
+				<tr>
                     <td>上级:</td>
 					<td>
                         <select id="pid" class="easyui-combobox" name="pid" editable="false" style="width:180px;" >
-						<option value="0">请选择上级</option>	
+						<option value="0">顶级部门</option>	
 						{{range $i,$v:=.list}}
-							<option value="{{$v.id}}">{{$v.dept_name}}</option> 
+							<option value="{{$v.id}}">{{$v.name}}</option> 
 							{{end}} 
                         </select>
 						<script type="text/javascript">
@@ -885,9 +974,24 @@ var adm_mch_deptedit = `
                 </tr>
                 <tr>
                     <td>名称:</td>
-                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="dept_name" value="{{.m.dept_name}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="name" value="{{.m.name}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
                 </tr>
-
+				<tr>
+                    <td>主要领导:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="main_leader" value="{{.m.main_leader}}"  ></input></td>
+				</tr>
+				<tr>
+                    <td>联系电话:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="phone1" value="{{.m.phone1}}" ></input></td>
+				</tr>
+				<tr>
+                    <td>备用联系电话:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="phone2" value="{{.m.phone2}}"  ></input></td>
+				</tr>
+				<tr>
+                    <td>详细地址:</td>
+                    <td><input class="easyui-textbox" type="text" style="width:180px;" name="address" value="{{.m.address}}" ></input></td>
+                </tr>
                 <tr>
                     <td>状态:</td>
 					<td>

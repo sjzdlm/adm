@@ -748,7 +748,12 @@ func (c *UserController) Remove() {
 
 //Role 列表页面
 func (c *UserController) Role() {
-	//c.TplName="adm/user/role.html"
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
+	}
+	fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
 	//开始渲染页面---------------------------------------------------------------------------
 	var tpl = template.New("")
 	tpl.Parse(adm_user_role)
@@ -771,14 +776,22 @@ func (c *UserController) Role() {
 
 //获取角色列表
 func (c *UserController) RoleJson() {
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
+	}
+	fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
+
 	var page, _ = c.GetInt("page", 1)
 	var pageSize, _ = c.GetInt("rows", 20)
 	var qtxt = c.GetString("qtxt")
-	var where = ""
+
+	var where = " where sysid=" + sysid.(string)
 
 	qtxt = strings.TrimSpace(string(qtxt))
 	if qtxt != "" {
-		where += " where `name` like '%" + qtxt + "%'"
+		where += "  and `name` like '%" + qtxt + "%'"
 	}
 
 	//排序
@@ -829,6 +842,13 @@ func (c *UserController) RoleEdit() {
 
 //角色保存提交
 func (c *UserController) RoleEditPost() {
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
+	}
+	fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
+
 	var id, _ = c.GetInt("id", 0)
 	var name = c.GetString("name")
 	var r = c.GetStrings("rights")
@@ -903,6 +923,7 @@ func (c *UserController) RoleEditPost() {
 	} else {
 		sql = `
 		insert into adm_role(
+			sysid,
 			name,
 			rights,
 			info,
@@ -910,10 +931,10 @@ func (c *UserController) RoleEditPost() {
 			level,
 			state
 		)values(
-			?,?,?,?,?,?
+			?,?,?,?,?,?,?
 		)
 		`
-		var i = db.Exec(sql,
+		var i = db.Exec(sql, sysid.(string),
 			name, rights,
 			info, memo, level, state,
 		)
@@ -1268,21 +1289,19 @@ func ChildIds2(mch_id string, pid string) string {
 
 //UserTreeJson 用户JSON字符串 ids为需要选中的节点
 func (c *UserController) UserTreeJson() {
-	// var ids = c.GetString("ids")
-	// if ids == "" {
-	// 	ids = c.GetSession("_uid").(string)
-	// }
-	// var idarray = strings.Split(ids, ",")
-	// var mapid = make(map[string]string)
-	// for _, v := range idarray {
-	// 	mapid[v] = v
-	// }
 	var id, _ = c.GetInt("id", 0)
 
-	var pid = c.GetSession("_uid").(string)
-	if pid == "" {
-		pid = "1"
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
 	}
+	//fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
+	var pid = sysid.(string)
+	// if c.GetSession("_uid") != nil {
+	// 	pid = c.GetSession("_uid").(string)
+	// }
+
 	//读取根节点
 	var list = db.Query("select * from adm_user where id=?", pid)
 	//fmt.Println("test ids:", ChildIds(pid))
@@ -2195,6 +2214,7 @@ var adm_user_roleedit = `
 
 
 `
+
 var adm_user_edit = `
 
 <script type="text/javascript">
@@ -2830,7 +2850,7 @@ func (c *UserController) UserTypeListJson() {
 		where += " and `name` like '%" + qtxt + "%'"
 	}
 
-	var rst = db.Pager(page, pageSize, "select * from adm_usertype where 1=1 "+where)
+	var rst = db.Pager(page, pageSize, "select id,level,mch_id,name,orders,sysid,state from adm_usertype where 1=1 "+where)
 
 	c.Data["json"] = rst
 	c.ServeJSON()
@@ -3374,4 +3394,669 @@ var adm_user_usertypeedit = `
         </div>
     </div>
 </div>
+`
+
+//-----------------------------------------------------------------------------------------------------------
+
+//List 列表页面
+func (c *UserController) UList() {
+	c.Data["_username"] = c.GetSession("_username").(string)
+	//账号类型信息
+	var sql = `select * from adm_usertype `
+	c.Data["usertype_list"] = db.Query(sql)
+
+	//开始渲染页面---------------------------------------------------------------------------
+	var tpl = template.New("")
+	tpl.Parse(adm_user_ulist)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+
+	if e != nil {
+		fmt.Println("tpl.Execute 错误:", e.Error())
+		c.Ctx.WriteString("页面模板错误!")
+		return
+	}
+
+	var rst = buf.String()
+
+	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+
+	c.Ctx.WriteString(rst)
+}
+
+//获取用户列表
+func (c *UserController) UListJson() {
+	var page, _ = c.GetInt("page", 1)
+	var pageSize, _ = c.GetInt("rows", 20)
+	var qtxt = c.GetString("qtxt")
+	var where = ""
+
+	qtxt = strings.TrimSpace(string(qtxt))
+	if qtxt != "" {
+		where += " where (`username` like '%" + qtxt + "%' or realname like '%" + qtxt + "%' or company like '%" + qtxt + "%') "
+	}
+
+	var usertype = c.GetString("usertype")
+	if usertype != "0" && usertype != "" {
+		if where != "" {
+			where += " and usertype='" + usertype + "' "
+		} else {
+			where += " where  usertype='" + usertype + "' "
+		}
+
+	}
+
+	//排序
+	var sort = c.GetString("sort")
+	var order = c.GetString("order")
+	if sort != "" && order != "" {
+		where += " order by " + sort + " " + order
+	} else {
+		where += " order by usertype,company_pid,company_id "
+	}
+
+	//fmt.Println("where:", where)
+	var rst = db.Pager(page, pageSize, "select *  from adm_user "+where)
+	//fmt.Println(rst)
+
+	c.Data["json"] = rst
+	c.ServeJSON()
+}
+
+//Edit 用户编辑页面
+func (c *UserController) UEdit() {
+	c.Data["is_sq"] = "0"
+
+	//读取子系统列表
+	var syslist = db.Query("select * from adm_menu where sysid=0 and pid=0")
+	c.Data["syslist"] = syslist
+
+	var _company_id = "0"
+	if c.GetSession("_company_id") != nil {
+		_company_id = c.GetSession("_company_id").(string) //单位ID
+	}
+	c.Data["_company_id"] = _company_id
+
+	var id, _ = c.GetInt("id", 0)
+	var m = db.First("select * from adm_user where id=?", id)
+	c.Data["m"] = m
+	if len(m) > 0 {
+		c.Data["uname"] = m["username"]
+		c.Data["pwd"] = m["password"]
+	} else {
+		c.Data["uname"] = ""
+		c.Data["pwd"] = "358719"
+	}
+	//公司列表
+	var mchlist = db.Query("select * from adm_mch")
+	c.Data["mchlist"] = mchlist
+	//角色列表
+	var where = ""
+
+	var roles = db.Query("select * from adm_role" + where)
+	c.Data["roles"] = roles
+	var roleids = ""
+	for i, v := range roles {
+		if i > 0 {
+			roleids += ","
+		}
+		roleids += v["id"]
+	}
+	c.Data["roleids"] = roleids
+	//账号类型列表 根据级别过滤
+	var utypelist = db.Query("select * from adm_usertype  order by orders")
+	c.Data["utypelist"] = utypelist
+	//根据信息选择已有权限
+	var jstr = ""
+	if m != nil {
+		var r = strings.Split(m["roles"], ",")
+		for i := 0; i < len(r); i++ {
+			jstr += `$('#role` + r[i] + `').prop('checked',true);`
+		}
+	}
+	c.Data["jstr"] = template.JS(jstr)
+
+	//开始渲染页面---------------------------------------------------------------------------
+	var tpl = template.New("adm_user_uedit")
+	tpl.Funcs(template.FuncMap{"str2html": beego.Str2html})
+	tpl.Parse(adm_user_uedit)
+	var buf bytes.Buffer
+	var e = tpl.Execute(&buf, c.Data)
+
+	if e != nil {
+		fmt.Println("tpl.Execute 错误:", e.Error())
+		c.Ctx.WriteString("页面模板错误!" + e.Error())
+		return
+	}
+	var rst = buf.String()
+
+	c.Ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	c.Ctx.Output.Header("Content-Type", "text/html; charset=utf-8")
+	c.Ctx.Output.Body([]byte(rst))
+
+	c.Ctx.WriteString(rst)
+}
+
+var adm_user_ulist = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link href="/css/default.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="/js/easyui/themes/metro/easyui.css">
+    <link rel="stylesheet" type="text/css" href="/js/easyui/themes/icon.css">
+	<link href="/css/www.css" rel="stylesheet" type="text/css" />
+
+	<script type="text/javascript" src="/js/easyui/base_loading.js"></script>
+    <script type="text/javascript" src="/js/easyui/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.form.js"></script>
+    <script type="text/javascript" src="/js/easyui/jquery.easyui.min.js"></script>
+	<!--<script type="text/javascript" src="/js/easyui/jquery.easyui.plus.js"></script>-->
+	<script type="text/javascript" src="/js/easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="/js/layer/layer.js"></script>
+	<script type="text/javascript" src="/adm/user/jsonutype"></script>
+    <style>
+        body {
+            background: #fff;
+        }
+    </style>
+    </style>
+    <script type="text/javascript">
+	var jq=jQuery;
+	if(jq==undefined){
+		jq=jQuery;
+	}
+function doSearch(){
+        $('#tt').datagrid('load',{
+			usertype: $('#q_usertype').combobox("getValue"),
+			qtxt:$('#qtxt').val()
+        });
+    }
+function doEdit(){
+        var row = $('#tt').datagrid('getSelected');
+        if (row){
+			var w=$('#win').window({
+				width:460,
+				height:420,
+				top:($(window).height() - 350) * 0.5,   
+					left:($(window).width() - 680) * 0.5,
+				modal:true,
+				title:'{{.tb.title}}'+'[编辑账号]'
+			});
+
+            $('#win').window('open');
+            $('#win').window('refresh', '/adm/user/uedit?id='+row.id);
+            $('#ff').form('load',row);
+        }else{
+            jq.messager.alert('警告','请选择一行数据','warning');
+        }
+
+}
+function doAdd() {
+	var row = $('#tt').datagrid('getSelected');
+	
+	var w=$('#win').window({
+		width:460,
+		height:420,
+		top:($(window).height() - 350) * 0.5,   
+            left:($(window).width() - 680) * 0.5,
+		modal:true,
+		title:'{{.tb.title}}'+'[添加账户]'
+	});
+    w.window('open');
+    w.window('refresh', '/adm/user/uedit?id=0');
+    $('#ff').form('load', row);
+}
+function doDel(){
+    var row = $('#tt').datagrid('getSelected');
+    if (row) {
+        jq.messager.confirm('Confirm', '确定要删除吗?', function (r) {
+            if (r) {
+                jq.post('/adm/user/remove', { id: row.id }, function (result) {
+                    if (result=="1") {
+                        $('#tt').datagrid('reload');
+                    }else if(result=="0"){
+                        jq.messager.alert('警告','删除失败!','warning');
+                    } else {
+                        jq.messager.alert('警告',result,'warning');
+                    }
+                });
+            }
+        });
+    } else {
+        jq.messager.alert('警告','请选择一行数据','warning');
+    }
+
+}
+    $(function(){
+
+    })
+	function doMch(){
+		top.addTab("企业管理","/adm/mch/list");
+	}
+
+	function rowformater_headimg(value, row, index) {
+		//return "<span class=' "+value+"'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
+		return "<img src='"+value+"' style='width:25px;height:25px;'>";
+    }
+	function rowformater_date(value, row, index) {
+       if (value == undefined) {
+        return "";
+		}
+		return value;//dateValue.Format("yyyy-MM-dd hh:mm:ss");
+    }
+	function rowformater_detail(value, row, index) {
+		return "<span ></span>";
+	}
+	function rowformater_usertype(value, row, index) {
+			if(value == undefined){
+				return '';
+			}
+			if(value==''){
+				return '';
+			}
+			var v=value;
+			if(jsonutype['key'+value]!=undefined){
+			 value= jsonutype['key'+value];
+			}
+			return value;
+	}
+	function rowformater_company_id(value, row, index) {
+			if(value == undefined){
+				return '';
+			}
+			if(value==''){
+				return '';
+			}
+			var v=value;
+			if(jsoncompany_id['key'+value]!=undefined){
+			 value= jsoncompany_id['key'+value];
+			}
+			return value;
+	}
+	function rowformater_company_pid(value, row, index) {
+		if(row.company_id == undefined){
+			return '';
+		}
+		if(row.company_id==''){
+			return '';
+		}
+		var v=row.company_id;
+		if(jsoncompany_id['pkey'+row.company_id]!=undefined){
+		 value= jsoncompany_id['pkey'+row.company_id];
+		}
+		return value;
+}
+	function rowformater_state(value, row, index) {
+		if(value=="0"){
+			return "禁用";
+		}
+		if(value=="1"){
+			return "<font color='green'>启用</font>";
+		}
+		if(value=="2"){
+			return "<font color='red'>封停</font>";
+		}
+	}
+    </script>
+</head>
+<body style="padding:2px;margin-bottom:2px;">
+
+    <table class="easyui-datagrid" style="width:600px;height:250px"
+           title="用户管理" toolbar="#tb" id="tt" iconcls="icon-man"
+           singleselect="true" pagination="true" fitcolumns="true" fit="true">
+        <thead>
+            <tr>
+				<th field="id" width="30" sortable="true">编号</th>
+				 <th field="headimg" align="center" width="50" data-options="formatter:rowformater_headimg">头像</th>  
+				<th field="usertype" align="center" sortable="true" width="65" data-options="formatter:rowformater_usertype">类型</th>
+				<th field="company_pid" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_pid">上级单位</th> 
+                <th field="company_id" align="center" width="90" sortable="true" data-options="formatter:rowformater_company_id">单位</th> 				            
+                <th field="username" align="right" sortable="true" width="70">用户名</th>
+				<th field="realname" align="right" sortable="true" width="90">姓名</th>
+
+                <th field="logintime" width="100" data-options="formatter:rowformater_date">登录时间</th> 
+				<th field="memo" width="50">备注</th>
+				<th field="state" align="center" width="50" sortable="true" data-options="formatter:rowformater_state">状态</th>
+				<th field=" " width="50" data-options="formatter:rowformater_detail">操作</th>
+            </tr>
+        </thead>
+    </table>
+
+    <div id="tb" style="padding:5px;height:auto">
+        <div style="margin-bottom:5px">
+            <a href="#" class="easyui-linkbutton" iconcls="icon-56" plain="true" onclick="doAdd();">新建</a>
+            <a href="#" class="easyui-linkbutton" iconcls="icon-1" plain="true" onclick="doEdit();">编辑</a>
+            <a href="#" class="easyui-linkbutton" iconcls="icon-no" plain="true" onclick="doDel();">删除</a>
+        </div>
+		<div>
+		用户类型: 
+		<select  id="q_usertype" name="usertype" style="width:130px;" class="easyui-combobox" editable='false'>
+		<option value="">请选择...</option>
+		{{range $i,$row:=.usertype_list}}
+		<option value="{{$row.id}}">{{$row.name}}</option>
+		{{end}}
+		</select>
+            搜索: <input class="easyui-textbox" id="qtxt" prompt="请输入要检索的账号、姓名、单位等..." style="width:210px">
+
+
+			<a href="#" class="easyui-linkbutton" iconcls="icon-search" onclick="doSearch();">查 询</a>&nbsp;
+			{{if eq ._username "root"}}
+			<a style="display:none;" href="#" class="easyui-linkbutton" iconcls="icon-43" onclick="doMch();">企业</a>
+			{{end}}
+        </div>
+    </div>
+
+    <div id="win" class="easyui-window" title="编辑信息" closed="true" collapsible="false" minimizable="false" maximizable="false" style="width:460px;height:420px;padding:5px;overflow-x: hidden;">
+        Some Content.
+    </div>
+<script type="text/javascript">
+<!--
+	$('#tt').datagrid({
+        nowrap: false, 
+        striped: true, 
+        border: true, 
+        collapsible:false,//是否可折叠的 
+        fit: true,//自动大小 
+        url:'/adm/user/ulistjson', 
+        //sortName: 'usertype', 
+        //sortOrder: 'asc', 
+        remoteSort:true,  
+        idField:'id', 
+		pageSize:20,
+		pageList:[20,50,100],
+        singleSelect:true,//是否单选 
+        pagination:true,//分页控件 
+        
+    }); 
+//-->
+</script>
+</body>
+</html>
+`
+
+var adm_user_uedit = `
+
+<script type="text/javascript">
+    var jq = jQuery;
+        $(function () {
+            //$('#pid').val('$!m.parentid');
+            if ('{{.m.state}}' == '1') {
+                $('#state').attr('checked', 'checked');
+            }
+            $('#images').val('$!m.images');
+        })
+        function submitForm(){
+            $('#form1').form('submit', {
+                success: function (data) {
+                    if (data == "1") {
+                        jq.messager.alert('成功', "操作成功!", "info");
+                        $('#tt').datagrid('reload');
+                        $('#win').window('close');
+                    } else {
+                        jq.messager.alert('错误', data, "warning");
+                    }
+                }
+            });
+        }
+        function clearForm(){
+            $('#win').window('close');
+        }
+        $('#image').combobox({
+            formatter: function (row) {
+
+                return '<span class="' + row.text + '">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="item-text">' + row.text + '</span>';
+            }
+        });
+</script>
+
+
+<div class="easyui-panel" title="" style="width:100%" fix="true" border="false">
+    <div style="padding:10px 60px 20px 60px">
+        <form id="form1" action="/adm/user/editpost" method="post">
+            <table cellpadding="5">
+                <tr>
+                    <td>账号:</td>
+                    <td><input class="easyui-textbox" type="text" name="username" style="width:160px;" value="{{.uname}}" data-options="required:true,missingMessage:'必填字段'"></input></td>
+				</tr>
+				<tr>
+					<td>系统:</td>
+					<td>
+						<select id="sysid" class="easyui-combobox" name="sysid" style="width:160px;" data-options="required:true" editable="false">
+						<option value="0">全部系统</option>	
+						{{range $k,$v:=.syslist}}
+                            <option value="{{$v.id}}">{{$v.title}}</option>
+                            {{end}}
+						</select>
+						<script type="text/javascript">
+							$('#sysid').combobox({
+                                onLoadSuccess: function () {
+								    $('#sysid').combobox('select','{{.m.sysid}}');
+							    }
+                            });
+						</script>
+					</td>
+				</tr>
+				{{if eq .is_sq "1"}}
+				<tr>
+					<td>上级:</td>
+					<td><input class="easyui-combotree" name="pid" style="width:160px;" id="pid" data-options="method:'get',labelPosition:'top',multiple:false"></input>
+					<script type="text/javascript">
+							$('#pid').combotree({
+								url: '/adm/user/usertreejson?id={{.m.id}}',
+								onCheck:function (item) {
+									//alert(JSON.stringify(item));
+								},
+								onLoadSuccess: function () {
+									$('#pid').combotree('setValues',{{.m.pid}});
+								}
+							});
+						</script>
+					</td>
+				</tr>
+				<tr>
+					<td>所属:</td>
+					<td><input class="easyui-combotree" name="pids" style="width:160px;" id="pids" data-options="method:'get',labelPosition:'top',multiple:true,cascadeCheck:false"></input>
+					<script type="text/javascript">
+							$('#pids').combotree({
+								url: '/adm/user/usertreejson?id={{.m.id}}',
+								onCheck:function (item) {
+									//alert(JSON.stringify(item));
+								},
+								onLoadSuccess: function () {
+									$('#pids').combotree('setValues',eval('['+{{.m.pids}}+']'));
+								}
+							});
+						</script>
+					</td>
+				</tr>
+				{{end}}
+                <tr>
+                    <td>姓名:</td>
+                    <td><input class="easyui-textbox" type="text" name="realname" style="width:160px;" value="{{.m.realname}}" data-options="required:true"></input></td>
+                </tr>
+				<tr>
+                    <td>电话:</td>
+                    <td><input class="easyui-textbox" type="text" name="mobile" style="width:160px;" value="{{.m.mobile}}" ></input></td>
+				</tr>
+				
+                <tr style="display:none;">
+                    <td>商户:</td>
+                    <td>
+                        <select id="mch_id" class="easyui-combobox" name="mch_id" style="width:160px;" data-options="required:true" editable="false">
+                            {{range $k,$v:=.mchlist}}
+                            <option value="{{$v.id}}">{{$v.mch_name}}</option>
+                            {{end}}
+                        </select>
+						<script type="text/javascript">
+						$(function(){
+							$('#mch_id').combobox({
+                                onLoadSuccess: function () {
+								    //$('#mch_id').combobox('select','{{.m.mch_id}}');
+							    }
+                            });							
+						})
+						</script>
+                    </td>
+				</tr>
+				
+                <tr>
+                    <td>类型:</td>
+                    <td>
+                        <select id="usertype" class="easyui-combobox" name="usertype" style="width:160px;" data-options="required:true" editable="false">
+						<option value="">请选择...</option>
+						{{range $k,$v:=.utypelist}}
+						<option value="{{$v.level}}">{{$v.name}}</option>
+						{{end}}
+                        </select>
+						<script type="text/javascript">
+							$(function(){
+								$('#usertype').combobox({
+									onLoadSuccess: function () {
+										$('#usertype').combobox('select','{{.m.usertype}}');
+									},
+									onChange: function (n,o) {
+										$('#company_id').combobox({
+											url:'/adm/user/usertypecompany?cid={{._company_id}}&id='+$('#usertype').combobox('getValue'),
+											valueField:'id',
+											textField:'val',
+											onLoadSuccess: function () {
+												var v='{{.m.company_id}}';
+												var ds=$('#company_id').combobox('getData');
+												//console.log(ds);
+												//console.log('------------------------------');
+												for (var i = 0; i < ds.length; i++) {
+													//console.log(ds[i]["val"]);
+													if(ds[i]["id"]==v){
+														$('#company_id').combobox('select','{{.m.company_id}}');
+													}
+												}
+											}
+										});
+										//load rolelist
+										$('#divrole').load('/xapi/rolehtmllist?level='+$('#usertype').combobox('getValue'),function(){
+											{{.jstr}}
+										});
+									}
+								});	
+								$('#usertype').combobox('select','{{.m.usertype}}');							
+							})
+
+						</script>
+                    </td>
+				</tr>
+				<tr>
+                    <td>单位:</td>
+                    <td>
+                        <select id="company_id" class="easyui-combobox" data-options="valueField:'id', textField:'val'" name="company_id" style="width:160px;"  editable="false">
+						<option value="0">请选择...</option>
+                        </select>
+                        <script type="text/javascript">
+							$('#company_id').combobox({
+                                onLoadSuccess: function () {
+									$('#company_id').combobox('select','{{.m.company_id}}');
+								},
+								onChange: function (n,o) {
+									$('#company').val($('#company_id').combobox("getText"));
+								}
+                            });
+						</script>
+						<input type="hidden" id="company" name="company" vale="{{.m.company}}"/>
+                    </td>
+				</tr>
+				<tr>
+                    <td style="width:55px;">管理员:</td>
+                    <td>
+					
+					<input class="easyui-switchbutton" id="is_manager" title="" name="is_manager" style="vertical-align:middle;">
+					<script type="text/javascript">
+						$(function(){
+							if('{{.m.is_manager}}'=='1'){
+								$('#is_manager').switchbutton({
+									checked: true,
+								})
+							}else{
+								$('#is_manager').switchbutton({
+									checked: false,
+								})
+							}
+						})
+					</script>
+					</td>
+                </tr>
+				<tr style="display:none;">
+                    <td>级别:</td>
+                    <td>
+                        <select id="level" class="easyui-combobox" name="level" style="width:160px;"  editable="false">
+                            <option select value="0">免费会员</option>
+                            <option value="1">普通会员</option>
+                            <option value="2">VIP会员</option>
+                            <option value="3">超级VIP</option>
+                        </select>
+                        <script type="text/javascript">
+							$('#level').combobox({
+                                onLoadSuccess: function () {
+								    $('#level').combobox('select','{{.m.level}}');
+							    }
+                            });
+						</script>
+                    </td>
+                </tr>
+                <tr>
+                    <td>密码:</td>
+                    <td><input class="easyui-textbox" type="text" name="password" style="width:160px;" value="{{.pwd}}" data-options="required:true"></input></td>
+                </tr>
+				<tr>
+                    <td>角色:</td>
+					<td> 
+						
+						<div style="max-width:260px;" id="divrole">
+						</div> 
+
+					</td>
+				</tr>
+				
+				<tr>
+                    <td>默认页:</td>
+                    <td><input class="easyui-textbox" type="text" name="defpage" style="width:160px;" value="{{.m.defpage}}"></input></td>
+                </tr>
+                <tr>
+                    <td>备注:</td>
+                    <td>
+                        <input class="easyui-textbox" type="text" name="memo" style="width:160px;" value="{{.m.memo}}"></input>
+                        <input type="hidden" id="id" name="id" value="{{.m.id}}" />
+                    </td>
+                </tr>
+				
+                <tr>
+                    <td>状态:</td>
+                    <td>
+                        <select id="state" class="easyui-combobox" name="state" style="width:142px;" editable="false">
+                            <option value="0">禁用</option>
+                            <option value="1">启用</option>
+                            <option value="2">封停</option>
+                        </select>
+						<script type="text/javascript">
+							$('#state').combobox({
+                                onLoadSuccess: function () {
+								    $('#state').combobox('select','{{.m.state}}');
+							    }
+                            });
+						</script>
+                    </td>
+                </tr>
+            </table>
+        </form>
+        <div style="text-align:center;padding:5px">
+
+            <a href="javascript:void(0)" class="easyui-linkbutton" iconcls="icon-ok" id="btnsave" onclick="submitForm()">保 存&nbsp;</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <a href="javascript:void(0)" class="easyui-linkbutton" iconcls="icon-no" onclick="clearForm()">取 消&nbsp;</a>
+        </div>
+    </div>
+</div>
+
+
 `

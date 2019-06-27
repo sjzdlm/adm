@@ -69,6 +69,13 @@ func (c *LoginController) Post() {
 		return
 	} else {
 		if u["state"] == "1" {
+			//首先清楚开发账号模式
+			c.SetSession("_root", nil)
+			c.SetSession("_root_level_", nil)
+			c.DelSession("_root")
+			c.DelSession("_root_level_")
+
+			c.SetSession("_sysid", u["sysid"])
 			c.SetSession("_me", u)
 			c.SetSession("_uid", u["id"])
 			c.SetSession("_mch_id", u["mch_id"])

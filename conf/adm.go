@@ -38,22 +38,12 @@ func InitRouter() {
 	beego.Router("/p/:module/:page", &controllers.PController{}, "get,post:Get")
 	//mp动态页面
 	beego.Router("/mp", &controllers.MPController{}, "get,post:Get")
-	//非权限校验接口
-	beego.AutoRouter(&controllers.XApiController{})
 
 	beego.AutoRouter(&controllers.MPController{})
 	beego.Router("/mp/:app/:page", &controllers.MPController{}, "get,post:Get")
 	beego.Router("/mp/:app", &controllers.MPController{}, "get,post:Get")
 	beego.Router("/mp/vue", &controllers.MPController{}, "get,post:Get")
 	beego.Router("/mp/css", &controllers.MPController{}, "get,post:Get")
-
-	//单页应用
-	beego.Router("/app", &controllers.AppController{}, "get,post:Get")
-	beego.AutoRouter(&controllers.AppController{})
-	beego.Router("/app/:app/:page", &controllers.AppController{}, "get,post:Get")
-	beego.Router("/app/:app", &controllers.AppController{}, "get,post:Get")
-	beego.Router("/app/vue", &controllers.AppController{}, "get,post:Get")
-	beego.Router("/app/css", &controllers.AppController{}, "get,post:Get")
 
 	//二维码
 	beego.Router("/qrcode", &controllers.QrcodeController{})
@@ -174,7 +164,8 @@ func InitConfig() {
 		var _key = ctx.Input.Query("_key")
 		fmt.Println("_key", _key)
 		var _uid = ctx.Input.Session("_uid")
-		if _key != "sjzapps" {
+		var _root = ctx.Input.Session("_root") //开发模式
+		if _key != "sjzapps" && _root == nil {
 			if (_uid == nil || _uid == "") && ctx.Request.RequestURI != "/adm/login" && !strings.Contains(ctx.Request.RequestURI, "/adm/mp") {
 				fmt.Println("_uid is nil now to go adm/login...")
 				ctx.Redirect(302, "/adm/login")

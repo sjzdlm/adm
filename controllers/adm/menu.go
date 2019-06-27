@@ -18,7 +18,14 @@ type MenuController struct {
 
 //List 列表页面
 func (c *MenuController) List() {
-	var toplist = db.Query("select * from  adm_menu where state=1 and pid=1")
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
+	}
+	fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
+
+	var toplist = db.Query("select * from  adm_menu where state=1 and pid=" + sysid.(string))
 	var qmenu = ""
 	for _, v := range toplist {
 		qmenu += "<option value='" + v["id"] + "'  title='" + v["label"] + "'>" + v["title"] + "-" + v["id"] + "</option>"
@@ -64,6 +71,12 @@ func (c *MenuController) ListJson() {
 		where = " where 1=1 "
 	}
 
+	//子系统ID
+	var _sysid = c.GetSession("_sysid")
+	if _sysid != nil {
+		where += " and sysid=" + _sysid.(string) + " "
+	}
+
 	qtxt = strings.TrimSpace(string(qtxt))
 	if qtxt != "" {
 		where += " and title like '%" + qtxt + "%'"
@@ -84,9 +97,16 @@ func (c *MenuController) ListJson() {
 func (c *MenuController) Edit() {
 	var id, _ = c.GetInt("id", 0)
 	c.Data["id"] = id
+	var sysid = c.GetSession("_sysid")
+	if sysid == nil {
+		c.Ctx.WriteString("0")
+		return
+	}
+	c.Data["sysid"] = sysid.(string)
+	fmt.Println("-------------------sysid:", c.GetSession("_sysid"))
 
 	//顶级菜单
-	var toplist = db.Query("select * from  adm_menu where state=1 and pid=1")
+	var toplist = db.Query("select * from  adm_menu where pid= " + sysid.(string) + " and state=1")
 	var qmenu = ""
 	for _, v := range toplist {
 		qmenu += "<option value='" + v["id"] + "'>" + v["title"] + "</option>"
@@ -137,6 +157,10 @@ func (c *MenuController) EditPost() {
 	// }
 
 	var pid, _ = c.GetInt("parentid", 0)
+	if pid == 0 {
+		c.Ctx.WriteString("0")
+		return
+	}
 	var title = c.GetString("title")
 	var orders, _ = c.GetInt("orders", 0)
 	var image = c.GetString("image")
@@ -193,6 +217,7 @@ func (c *MenuController) EditPost() {
 	} else {
 		sql = `
 		insert into adm_menu(
+			sysid,
 			pid,
 			title,
 			orders,
@@ -203,10 +228,16 @@ func (c *MenuController) EditPost() {
 			memo,
 			state
 		)values(
-			?,?,?,?,?,?,?,?,?
+			?,?,?,?,?,?,?,?,?,?
 		)
 		`
+		var sysid = c.GetSession("_sysid")
+		if sysid == nil {
+			c.Ctx.WriteString("0")
+			return
+		}
 		var i = db.Exec(sql,
+			sysid.(string),
 			pid,
 			title,
 			orders,
@@ -455,7 +486,7 @@ var adm_menu_edit = `
                     <td>父节点:</td>
                     <td>
                         <select  id="parentid" name="parentid" style="width:165px;" class="easyui-combobox1" editable='false'>
-						<option value="1">根节点</option>
+						<option value="{{.sysid}}">根节点</option>
 						</select>
 						<script language="javascript">
 						$(function(){
@@ -1255,10 +1286,10 @@ var adm_menu_edit = `
                         </select>
                     </td>
 				</tr>
-				<tr>
+				<tr style="display:none;">
                     <td>图标2:</td>
                     <td>
-                        <select id="icon" class="easyui-combobox fa" name="icon" editable='false' style="width:165px;" data-options="required:true">
+                        <select id="icon" class="easyui-combobox fa" name="icon" editable='false' style="width:165px;" >
                             <option value="icon-0">icon-0</option>
                             <option value="icon-1">icon-1</option>
                             <option value="icon-2">icon-2</option>

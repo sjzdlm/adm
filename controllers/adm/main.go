@@ -19,6 +19,7 @@ type MainController struct {
 
 //首页
 func (c *MainController) Get() {
+	var _root = c.Ctx.Input.Session("_root")
 	//1.检查是否登录
 	var _uid = c.Ctx.Input.Session("_uid")
 	var _uname = c.Ctx.Input.Session("_username")
@@ -28,12 +29,23 @@ func (c *MainController) Get() {
 	var _loginip = c.Ctx.Input.Session("_loginip")
 	var _userlevel = c.Ctx.Input.Session("_userlevel")
 
+	//检查是否有开发账号登录
+	if _root != nil && _root.(string) != "" {
+		c.Ctx.WriteString("请退出开发账号后进行登录!")
+		return
+	}
+
 	if (_uid == nil || _uid == "") && c.Ctx.Request.RequestURI != "/adm/login" {
 		c.Ctx.Redirect(302, "/adm/login")
 		return
 	}
 	c.Data["_logintime"] = _logintime
 	c.Data["_loginip"] = _loginip
+
+	//读取子系统列表
+	var syslist = db.Query("select * from adm_menu where sysid=0 and pid=0")
+	c.Data["syslist"] = syslist
+
 	//2.获取用户信息
 	var m = db.FirstOrNil("select * from adm_user where id=?", _uid)
 	if m == nil {
@@ -89,7 +101,21 @@ func (c *MainController) Get() {
 	//6.获取顶部菜单
 	//调用之前先把nid和id同步一下
 	db.Exec("update adm_menu set nid=id where nid is null ")
-	var topmenu = db.Query("select * from adm_menu where pid=1 and nid in (" + rs + ") order by orders ")
+
+	//获取系统ID
+	var sysid = c.GetString("sysid")
+	if sysid == "" {
+		sysid = c.GetSession("_sysid").(string)
+	}
+	//fmt.Println("-----------------------sysid:", sysid)
+	//验证系统是否存在
+	var yzsys = db.First("select * from adm_menu where sysid=0 and pid=0 and id=? ", sysid)
+	//fmt.Print("yzsys", yzsys)
+	if len(yzsys) < 1 {
+		c.Ctx.WriteString("system is not found")
+		return
+	}
+	var topmenu = db.Query("select * from adm_menu where pid=? and nid in ("+rs+") order by orders ", sysid)
 	c.Data["_topmenu"] = topmenu
 	if len(topmenu) > 0 {
 		for _, v := range topmenu {
@@ -596,11 +622,11 @@ var adm_main_get = `
             <div class="navbar-custom-menu">
                 <ul class="nav navbar-nav">
                     <li>
-                        <a href="#" onclick="logOut();" title='退出系统'><i class="fa fa-sign-out"></i></a>
+                        <a href="#" onclick="logOut();" title='退出系统'><i class="fa fa-sign-out"></i>&nbsp;注销</a>
                     </li>
                     <!-- Control Sidebar Toggle Button -->
                     <li>
-                        <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
+                        <a href="#" data-toggle="control-sidebar"><i class="fa fa-bars"></i></a>
                     </li>
                 </ul>
             </div>
@@ -693,29 +719,26 @@ var adm_main_get = `
     <aside class="control-sidebar control-sidebar-dark">
         <!-- Create the tabs -->
         <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
-            <li><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-home"></i></a></li>
+            <li class="active"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-home"></i></a></li>
         </ul>
         <!-- Tab panes -->
         <div class="tab-content">
-            <!-- Home tab content -->
-            <div class="tab-pane" id="control-sidebar-home-tab">
-                <h3 class="control-sidebar-heading">&nbsp;</h3>
-                <ul class="control-sidebar-menu">
-                    <li>
-                       <div style="height:100%;">&nbsp;</div>
-                    </li>
-                    
-                </ul>
-                <!-- /.control-sidebar-menu -->
-
-                <!-- /.control-sidebar-menu -->
-
-            </div>
-            <!-- /.tab-pane -->
-            <!-- Stats tab content -->
+            <div class="tab-pane active" id="control-sidebar-home-tab"> 
+                <h3 class="control-sidebar-heading">系统切换</h3> 
+                <ul class="control-sidebar-menu"> 
+                {{range $i,$row:=.syslist}}
+                <li>
+                    <a href="/adm/main?sysid={{$row.id}}">
+                        <i class="menu-icon fa fa-birthday-cake bg-red {{$row.image}}"></i>
+                        <div class="menu-info">
+                            <h4 class="control-sidebar-subheading" style="line-height: 25px;font-size:12px;">{{$row.title}}</h4>
+                        </div>
+                    </a>
+                </li>
+                {{end}}
+                </ul> 
+            </div> 
             <div class="tab-pane" id="control-sidebar-stats-tab">Stats Tab Content</div>
-            <!-- /.tab-pane -->
-            
         </div>
     </aside>
     <!-- /.control-sidebar -->
